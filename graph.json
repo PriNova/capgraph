@@ -1,0 +1,31 @@
+{
+  "physics_object.create": {
+    "skill": "physics-object-create",
+    "requires": [
+      "object.create",
+      "rigid_body.add",
+      "collision.add"
+    ],
+    "verify_with": [
+      "physics_object.verify"
+    ]
+  },
+  "object.create": {
+    "skill": "object-create"
+  },
+  "rigid_body.add": {
+    "skill": "rigid-body-add",
+    "requires": [
+      "object.create"
+    ]
+  },
+  "collision.add": {
+    "skill": "collision-add",
+    "requires": [
+      "object.create"
+    ]
+  },
+  "physics_object.verify": {
+    "skill": "physics-object-verify"
+  }
+}

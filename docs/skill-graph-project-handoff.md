@@ -1,5 +1,9 @@
 # Skill Graph for Coding Agents — Project Handoff
 
+## Companion Documents
+
+- [Pi Compatibility Contract](pi-compatibility-contract.md) — mandatory integration and acceptance requirements for pi-compatible implementations.
+
 ## 1. Project Goal
 
 Build and test a minimal **Skill/Capability Graph** for coding agents.
@@ -43,7 +47,7 @@ Examples:
 - context-sensitive advice.
 
 ### Executable implementation
-Python/scripts/tools used to actually perform or verify an operation.
+TypeScript tools and domain-specific scripts used to perform or verify an operation, including Python where required by UPBGE.
 
 Conceptually:
 
@@ -151,7 +155,7 @@ This isolates the graph-composition question.
 
 ```text
 skills/
-├── create_mesh/SKILL.md
+├── mesh-create/SKILL.md
 ├── material/SKILL.md
 ├── collision/SKILL.md
 ├── character/SKILL.md
@@ -178,27 +182,33 @@ character.create
 
 ## 7. Minimal Repository Shape
 
-Start simple.
+Start as a pi-compatible package.
 
 ```text
 skill-graph/
+├── package.json
 ├── graph.json
-├── skills/
+├── capabilities/
 │   ├── scene-create/
 │   │   └── SKILL.md
 │   ├── object-create/
 │   │   └── SKILL.md
-│   ├── rigid-body/
+│   ├── rigid-body-add/
 │   │   └── SKILL.md
-│   ├── collision/
+│   ├── collision-add/
 │   │   └── SKILL.md
 │   └── ...
-├── harness/
-│   ├── graph.py
-│   └── cli.py
+├── extensions/
+│   └── skill-graph.ts
+├── src/
+│   └── graph.ts
 ├── tests/
 └── examples/
 ```
+
+Keep graph loading and traversal in TypeScript so the pi extension can use them directly. Keep later UPBGE execution and verification scripts in Python where required by UPBGE.
+
+Store graph-managed skills under `capabilities/`, not a pi auto-discovered `skills/` package resource. The extension must load only the files selected by graph expansion.
 
 Do not introduce a database until plain JSON becomes a real limitation.
 
@@ -206,11 +216,14 @@ Do not introduce a database until plain JSON becomes a real limitation.
 
 ## 8. Initial Graph Format
 
+Each node maps its graph ID to a valid Agent Skills name. Graph IDs may use dotted domain names; skill names use lowercase letters, numbers, and hyphens.
+
 Example `graph.json`:
 
 ```json
 {
   "character.create": {
+    "skill": "character-create",
     "requires": [
       "mesh.create",
       "collision.add",
@@ -225,6 +238,8 @@ Example `graph.json`:
   }
 }
 ```
+
+The `skill` field is required for every node. It resolves to `capabilities/<skill>/SKILL.md`.
 
 Keep the schema intentionally small.
 
@@ -244,16 +259,12 @@ Do not add additional edge types before a concrete use case requires them.
 
 ## 9. Minimal Harness API
 
-Implement only:
+Expose only these operations through the pi `skill_graph` custom tool:
 
 ```text
-skills.list()
-skills.inspect(id)
-skills.expand(id)
-skills.search(query)
+inspect(id)
+expand(id)
 ```
-
-For V0, `search()` can be trivial or even unused.
 
 Core graph functions:
 
@@ -265,7 +276,7 @@ get_recovery(id)
 expand_subgraph(id)
 ```
 
-The important part is graph traversal, not search sophistication.
+For V0, `expand(id)` always includes referenced verification and recovery nodes. Defer `list()` and `search()` until a benchmark or workflow requires them. The important part is graph traversal, not search sophistication.
 
 ---
 
@@ -701,18 +712,18 @@ When a new problem layer appears, record it under `docs/open-questions.md` rathe
 
 ## 23. Recommended First Tasks for the Coding Agent
 
-1. Create the repository skeleton.
-2. Define a minimal `graph.json` schema.
-3. Implement graph loading.
+1. Create the pi package skeleton.
+2. Define a minimal `graph.json` schema with explicit skill-name mappings.
+3. Implement graph loading in TypeScript.
 4. Implement `inspect(id)`.
-5. Implement recursive `expand(id)` with cycle detection.
-6. Add 5 initial UPBGE skills.
-7. Write minimal `SKILL.md` files.
-8. Create one test workflow: `create_physics_object`.
-9. Add a CLI to inspect/expand the graph.
-10. Only after that, connect it to the coding agent / UPBGE execution loop.
+5. Implement recursive `expand(id)` with cycle detection and deterministic ordering.
+6. Register both operations through a pi `skill_graph` custom tool.
+7. Add 5 initial UPBGE capability skills under `capabilities/`.
+8. Validate the extension and skill files in pi without connecting UPBGE.
+9. Create one test workflow: `create_physics_object`.
+10. Only after that, connect UPBGE execution and verification.
 
-Do not begin with intent search, self-learning, or a database.
+Do not begin with a separate CLI, intent search, self-learning, or a database.
 
 ---
 
@@ -734,7 +745,7 @@ physics_object.create
  ├─ requires → collision.add
  └─ verify_with → physics_object.verify
 
-Agent loads only required SKILL.md files.
+The pi extension reads only the selected `SKILL.md` files and returns their content to the agent through the `skill_graph` tool result.
 
 Agent executes task.
 

@@ -13,7 +13,7 @@ Known root capability:
 vehicle-create
 ```
 
-The graph loading policy must be fixed from the completed V0.1 loading-policy result before V1 runs. Do not choose or change the policy based on V1 outcomes.
+The completed V0.1 result fixes Graph Batch as the V1 graph loading policy. Do not change the policy based on V1 outcomes.
 
 ## 2. Conditions
 
@@ -27,7 +27,7 @@ The graph loading policy must be fixed from the completed V0.1 loading-policy re
 
 - Expose no graph-managed skill catalog through flat discovery.
 - Expand the supplied root deterministically.
-- Use the loading policy selected before V1.
+- Use Graph Batch, as selected by V0.1.
 - Load recovery prose only after a relevant verification failure.
 
 Both conditions use identical Markdown bodies, task prompts, execution tools, verifier implementations, scene state, model, and reasoning level.
@@ -166,4 +166,4 @@ Fixture tests must prove:
 
 ## 10. Stop Boundary
 
-Before implementation, complete V0.1 and freeze its loading-policy decision. V1 implementation should then add only the specified capability fixtures, deterministic UPBGE operations, verifier, one-shot fault injection, recovery operation, tests, runner, and report. No semantic search, database, index, cache layer, agent orchestrator, or self-modifying graph is required.
+V0.1 is complete and its Graph Batch policy is frozen. V1 implementation should add only the specified capability fixtures, deterministic UPBGE operations, verifier, one-shot fault injection, recovery operation, tests, runner, and report. No semantic search, database, index, cache layer, agent orchestrator, or self-modifying graph is required.

@@ -10,7 +10,7 @@ UPBGE is the first test domain. The graph implementation remains domain-independ
 
 The technical V0 vertical slice and controlled V0 benchmark are complete. Flat and Graph both achieved 5/5 verified success. Graph used slightly fewer unique capability-context bytes but increased turns, tool calls, duration, provider usage, and cost. The historical V0 specification and report remain unchanged.
 
-V0.1 adds Flat, Graph Progressive, and Graph Batch conditions after removing dependency-sequence prose from the composite root. It isolates one-skill-at-a-time loading overhead. General natural-language root selection and unrestricted UPBGE control remain outside scope.
+V0.1 compared Flat, Graph Progressive, and Graph Batch after removing dependency-sequence prose from the composite root. All conditions achieved 6/6 verified success. Batch removed much of Progressive's interaction overhead, but Flat retained lower input-token usage and cost. General natural-language root selection and unrestricted UPBGE control remain outside scope.
 
 ## Core Model
 
@@ -97,7 +97,7 @@ npm run benchmark:loading-policy -- --start 1 --end 3 --auto-reset
 
 Both runners default to `openai-codex/gpt-5.6-luna` with `max` reasoning. V0.1 uses a manual clean-scene gate by default. Its optional `--auto-reset` mode deletes only `CapgraphBenchmarkCube` and its mesh when unused, then verifies that the object is absent before timing starts. Raw attempt records are written as ignored JSON Lines under `benchmarks/results/` unless `--output <path>` is supplied.
 
-See the [V0 report](docs/v0-pilot-benchmark-report.md), [V0.1 specification](docs/v0.1-loading-policy-benchmark-specification.md), and [V1 composition design](docs/v1-composition-benchmark-specification.md).
+See the [V0 report](docs/v0-pilot-benchmark-report.md), [V0.1 specification](docs/v0.1-loading-policy-benchmark-specification.md), [V0.1 report](docs/v0.1-loading-policy-benchmark-report.md), and [V1 composition design](docs/v1-composition-benchmark-specification.md).
 
 ## pi Integration
 
@@ -139,6 +139,7 @@ The direct transport and complete create/configure/verify workflow have been val
 - [V0 pilot benchmark specification](docs/v0-pilot-benchmark-specification.md)
 - [V0 pilot benchmark report](docs/v0-pilot-benchmark-report.md)
 - [V0.1 loading-policy benchmark specification](docs/v0.1-loading-policy-benchmark-specification.md)
+- [V0.1 loading-policy benchmark report](docs/v0.1-loading-policy-benchmark-report.md)
 - [V1 composition benchmark specification](docs/v1-composition-benchmark-specification.md)
 - [Pi compatibility contract](docs/pi-compatibility-contract.md)
 - [UPBGE control transport](docs/upbge-control-transport.md)

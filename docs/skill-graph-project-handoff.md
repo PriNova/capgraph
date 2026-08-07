@@ -782,6 +782,7 @@ The V0 pilot benchmark is defined in [V0 Flat Skills vs Skill Graph Pilot Benchm
 18. Completed the live tool-level workflow through the registered pi tool: status, cube creation, rigid-body configuration, collision configuration, and successful verification.
 19. Defined the controlled V0 pilot benchmark with five flat-skills runs, five Skill Graph runs, independent UPBGE verification, fixed run ordering, failure classification, and required measurements.
 20. Implemented the pi SDK pilot runner with isolated flat and graph resources, generated flat fixtures, a manual UPBGE reset gate, event and usage collection, independent verification, limits, reruns for infrastructure failures, and JSON Lines output.
+21. Removed workflow-order guidance from the UPBGE execution tool, directed execution tasks to graph expansion, and made successful root expansion before mutation an explicit benchmark protocol requirement.
 
 ### Next tasks:
 

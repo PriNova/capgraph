@@ -26,6 +26,7 @@ import {
   BENCHMARK_SCHEDULE,
   BENCHMARK_SKILLS,
   createFlatSkillContents,
+  evaluateBenchmarkProtocol,
   type BenchmarkCondition,
   type BenchmarkSlot,
 } from "../src/pilot-benchmark.ts";
@@ -72,7 +73,11 @@ interface VerificationRecord {
   readonly error?: string;
 }
 
-type AttemptStatus = "success" | "task_failure" | "infrastructure_failure";
+type AttemptStatus =
+  | "success"
+  | "task_failure"
+  | "protocol_failure"
+  | "infrastructure_failure";
 
 interface AttemptRecord {
   readonly benchmark: string;
@@ -101,6 +106,10 @@ interface AttemptRecord {
     readonly graphResults: number;
   };
   readonly independentVerification: VerificationRecord;
+  readonly protocol: {
+    readonly conformant: boolean;
+    readonly reason: string | null;
+  };
   readonly failureReason: string | null;
 }
 
@@ -455,11 +464,16 @@ async function runAttempt(
   const sessionError = session.agent.state.errorMessage;
   session.dispose();
 
-  const failureReason = limitReason ?? promptError ?? sessionError ?? verification.error ?? null;
+  const toolCalls = [...calls.values()];
+  const protocol = evaluateBenchmarkProtocol(slot.condition, toolCalls);
+  const runtimeFailure = limitReason ?? promptError ?? sessionError ?? verification.error ?? null;
+  const failureReason = runtimeFailure ?? protocol.reason;
   let status: AttemptStatus;
-  if (failureReason !== null && isInfrastructureError(failureReason)) {
+  if (runtimeFailure !== null && isInfrastructureError(runtimeFailure)) {
     status = "infrastructure_failure";
-  } else if (verification.ok && limitReason === undefined && promptError === undefined && sessionError === undefined) {
+  } else if (!protocol.conformant) {
+    status = "protocol_failure";
+  } else if (verification.ok && runtimeFailure === null) {
     status = "success";
   } else {
     status = "task_failure";
@@ -484,7 +498,7 @@ async function runAttempt(
     startedAt: startedAt.toISOString(),
     durationMs: Date.now() - startedAt.getTime(),
     turns,
-    toolCalls: [...calls.values()],
+    toolCalls,
     usage: {
       input: stats.tokens.input,
       output: stats.tokens.output,
@@ -494,6 +508,7 @@ async function runAttempt(
     },
     contextBytes: { skillCatalog: catalogBytes, skillBodiesRead, graphResults },
     independentVerification: verification,
+    protocol,
     failureReason,
   };
 }
@@ -532,7 +547,8 @@ async function main(): Promise<void> {
       await appendRecord(options.outputPath, record);
       console.log(
         `Slot ${slot.sequence} attempt ${attempt}: ${record.status}; ` +
-          `verification=${record.independentVerification.ok}; tools=${record.toolCalls.length}`,
+          `verification=${record.independentVerification.ok}; ` +
+          `protocol=${record.protocol.conformant}; tools=${record.toolCalls.length}`,
       );
       if (record.status !== "infrastructure_failure") break;
       console.log("Infrastructure failure recorded. The same slot must be repeated.");

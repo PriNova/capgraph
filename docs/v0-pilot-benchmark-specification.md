@@ -54,7 +54,8 @@ The five skills are:
 
 - Do not expose graph-managed capabilities through normal pi skill discovery.
 - Register `skill_graph` and `upbge_control`.
-- Let the agent call `expand` for the supplied root capability.
+- Require the agent to call `expand` for the supplied root capability before the first UPBGE mutation.
+- Reserve `inspect` for direct metadata questions; it does not satisfy the execution benchmark protocol.
 - Expose only skill bodies selected by graph expansion.
 
 Expected expansion:
@@ -94,7 +95,7 @@ Both conditions must use:
 - the same prompt;
 - the same base system instructions;
 - the same built-in tools;
-- the same `upbge_control` implementation and tool guidance;
+- the same `upbge_control` implementation and non-compositional safety guidance;
 - in-memory sessions with no prior messages;
 - disabled global and project resource discovery except for explicit benchmark resources;
 - no compaction during a run;
@@ -162,8 +163,9 @@ Apply the same limits to both conditions:
 
 Classify outcomes as:
 
-- `success`: independent verification passes;
+- `success`: independent verification passes and the graph condition satisfies its expansion protocol;
 - `task_failure`: agent stops, exceeds a limit, or leaves invalid UPBGE state;
+- `protocol_failure`: a graph run does not successfully call `expand("physics-object-create")` before its first UPBGE mutation;
 - `infrastructure_failure`: model service, pi runtime, benchmark harness, UPBGE process, or bridge fails independently of agent behavior.
 
 An infrastructure failure does not consume its scheduled slot. Restore clean state and repeat that slot with the same condition. Record both the invalid attempt and its reason.
@@ -184,6 +186,7 @@ An infrastructure failure does not consume its scheduled slot. Restore clean sta
 - provider-reported cost when available;
 - operation sequence;
 - whether the agent called verification;
+- whether the graph run expanded the root before mutation;
 - skill files loaded with `read`;
 - bytes of full skill prose returned by `read`;
 - bytes returned by `skill_graph`;
@@ -244,6 +247,10 @@ Write one JSON record per attempt. Minimum shape:
     "ok": true,
     "failures": []
   },
+  "protocol": {
+    "conformant": true,
+    "reason": null
+  },
   "failureReason": null
 }
 ```
@@ -273,6 +280,7 @@ Also list:
 
 - every task failure and its verifier output;
 - every infrastructure failure and rerun;
+- every graph protocol failure;
 - observed operation-order differences;
 - capability files read in the flat condition;
 - known benchmark limitations.
@@ -283,10 +291,11 @@ The pilot is complete when:
 
 1. all ten valid scheduled runs finish;
 2. every run starts from verified clean state;
-3. all run records contain configuration, event, usage, context, and independent verification data;
-4. no condition receives unplanned resources or human steering;
-5. summary metrics are generated from raw records;
-6. results and limitations are recorded without a favorable-result assumption.
+3. all graph runs successfully expand the supplied root before their first UPBGE mutation;
+4. all run records contain configuration, event, usage, context, protocol, and independent verification data;
+5. no condition receives unplanned resources or human steering;
+6. summary metrics are generated from raw records;
+7. results and limitations are recorded without a favorable-result assumption.
 
 ## 14. Runner
 
@@ -296,7 +305,9 @@ The SDK runner is available at `benchmarks/pilot.ts`:
 npm run benchmark:pilot -- --model <provider/model> --thinking medium
 ```
 
-Use `--start <1-10>` and `--end <1-10>` to execute or resume part of the fixed schedule. Use `--output <path>` to append records to a specific JSON Lines file.
+Use `--start <1-10>` and `--end <1-10>` to execute or resume part of the fixed schedule. Use `--output <path>` to append records to a specific JSON Lines file. Local JSON Lines results under `benchmarks/results/` are ignored by Git so they do not change the recorded dirty-worktree state during resumed runs.
+
+A graph attempt is marked `protocol_failure` unless it successfully expands `physics-object-create` before its first UPBGE mutation. Independent scene verification alone is not enough for graph-condition success.
 
 The current runner uses a manual reset gate. It checks bridge availability and confirms that `CapgraphBenchmarkCube` is absent, but it does not mutate the scene during setup. When the object exists, restore the empty scene manually and press Enter to check again.
 
@@ -304,7 +315,7 @@ The current runner uses a manual reset gate. It checks bridge availability and c
 
 - Only one workflow is tested.
 - The workflow has shallow, direct dependencies.
-- Operation names and `upbge_control` guidance reveal part of the required sequence to both conditions.
+- Allowed `upbge_control` operation names remain visible to both conditions, but its prompt guidance does not state the workflow recipe.
 - The composite skill prose also describes the sequence.
 - No recovery capability is present, so recovery success is not measured.
 - Five runs per condition are enough to validate the harness, not to establish general effectiveness.

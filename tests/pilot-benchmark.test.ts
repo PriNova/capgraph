@@ -5,6 +5,7 @@ import {
   BENCHMARK_SCHEDULE,
   BENCHMARK_SKILLS,
   createFlatSkillContents,
+  evaluateBenchmarkProtocol,
 } from "../src/pilot-benchmark.ts";
 
 test("defines five balanced flat and graph pilot pairs", () => {
@@ -17,6 +18,48 @@ test("defines five balanced flat and graph pilot pairs", () => {
   );
   assert.equal(new Set(BENCHMARK_SCHEDULE.map((slot) => slot.sequence)).size, 10);
   assert.equal(BENCHMARK_SKILLS.length, 5);
+});
+
+test("requires successful graph expansion before mutation", () => {
+  assert.deepEqual(evaluateBenchmarkProtocol("flat", []), { conformant: true, reason: null });
+  assert.deepEqual(
+    evaluateBenchmarkProtocol("graph", [
+      {
+        name: "skill_graph",
+        args: { operation: "inspect", skill: "physics-object-create" },
+        isError: false,
+      },
+    ]),
+    {
+      conformant: false,
+      reason: "Graph run did not successfully expand physics-object-create.",
+    },
+  );
+  assert.deepEqual(
+    evaluateBenchmarkProtocol("graph", [
+      {
+        name: "skill_graph",
+        args: { operation: "expand", skill: "physics-object-create" },
+        isError: false,
+      },
+      { name: "upbge_control", args: { operation: "create_cube" }, isError: false },
+    ]),
+    { conformant: true, reason: null },
+  );
+  assert.deepEqual(
+    evaluateBenchmarkProtocol("graph", [
+      { name: "upbge_control", args: { operation: "create_cube" }, isError: false },
+      {
+        name: "skill_graph",
+        args: { operation: "expand", skill: "physics-object-create" },
+        isError: false,
+      },
+    ]),
+    {
+      conformant: false,
+      reason: "Graph run expanded the root capability only after UPBGE mutation started.",
+    },
+  );
 });
 
 test("creates flat skill prose without graph metadata", () => {

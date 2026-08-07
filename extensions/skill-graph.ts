@@ -58,6 +58,8 @@ const skillGraphTool = defineTool({
   promptSnippet: "Inspect or expand the local capability graph from a known root skill",
   promptGuidelines: [
     "Use skill_graph only when the task supplies or otherwise establishes a canonical root skill name.",
+    "For an execution task, call expand on the root capability before using execution tools so required, verification, and recovery skill prose is available.",
+    "Use inspect only when the task asks about one capability's direct graph metadata without executing it.",
   ],
   parameters,
 

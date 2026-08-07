@@ -54,8 +54,8 @@ export default function registerUpbgeControl(pi: ExtensionAPI): void {
       promptSnippet: "Control and verify UPBGE editor objects through approved Capgraph capability scripts",
       promptGuidelines: [
         "Use upbge_control only for UPBGE editor operations represented by its allowed operation list.",
-        "Call mutating upbge_control operations sequentially in dependency order; do not call dependent operations in parallel.",
-        "Use upbge_control verify_physics_object after configuring rigid-body physics and collision.",
+        "Call mutating upbge_control operations sequentially; do not run mutations in parallel.",
+        "Derive operation selection, ordering, and verification requirements from the applicable capability instructions.",
       ],
       parameters,
 

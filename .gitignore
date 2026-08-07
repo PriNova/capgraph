@@ -2,3 +2,4 @@ node_modules/
 dist/
 coverage/
 benchmarks/.generated-flat-skills/
+benchmarks/results/*.jsonl

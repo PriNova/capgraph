@@ -20,7 +20,10 @@
     "test": "node --test tests/*.test.ts",
     "test:workflow": "node --test tests/workflow.test.ts",
     "benchmark:pilot": "node benchmarks/pilot.ts",
-    "benchmark:loading-policy": "node benchmarks/loading-policy.ts"
+    "benchmark:loading-policy": "node benchmarks/loading-policy.ts",
+    "test:v1-upbge-fixture": "node benchmarks/v1-fixture-test.ts",
+    "benchmark:v1": "node benchmarks/v1-composition.ts",
+    "report:v1": "node benchmarks/report-v1.ts"
   },
   "dependencies": {
     "yaml": "^2.9.0"

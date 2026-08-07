@@ -21,16 +21,25 @@ The completed V0.1 result fixes Graph Batch as the V1 graph loading policy. Do n
 
 - Expose the complete V1 skill catalog through normal flat discovery.
 - Allow exact source-equivalent skill bodies to be loaded with `read`.
+- Scope benchmark `read` access to discovered generated V1 `SKILL.md` fixtures. Block implementation, harness, source-graph, and unrelated filesystem reads so tool-error exploration cannot contaminate the condition.
 - Remove only CapGraph metadata from generated fixtures.
 
 ### Graph
 
-- Expose no graph-managed skill catalog through flat discovery.
+- Expose no graph-managed skill catalog through flat discovery and do not provide the Flat `read` path.
 - Expand the supplied root deterministically.
 - Use Graph Batch, as selected by V0.1.
 - Load recovery prose only after a relevant verification failure.
 
 Both conditions use identical Markdown bodies, task prompts, execution tools, verifier implementations, scene state, model, and reasoning level.
+
+### Execution-tool leakage control
+
+Flat and Graph must receive exactly the same UPBGE execution interface. Tool names, descriptions, schemas, examples, parameter descriptions, prompt snippets, and system guidance must not encode the capability composition under test. They must not prescribe or reveal the dependency graph, workflow order, verifier choice, recovery path, irrelevant capabilities, shared transitive dependencies, or complete vehicle recipe.
+
+The interface may expose primitive UPBGE mutations. Structured verifier failures may report observed runtime faults, including expected and actual values. This runtime evidence is not composition guidance. The interface must not explain which recovery capability addresses a failure.
+
+Fixture tests must compare the execution tool exposed to both conditions and inspect shared and condition-specific tool guidance for accidental graph-only relationship leakage. Do not redesign the execution interface unless such a test identifies concrete leakage.
 
 ## 3. Proposed Relevant Topology
 

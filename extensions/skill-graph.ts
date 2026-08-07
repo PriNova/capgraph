@@ -61,6 +61,7 @@ function serializeResult(result: unknown): string {
 export function registerSkillGraph(
   pi: ExtensionAPI,
   loadingPolicy: SkillGraphLoadingPolicy = "progressive",
+  capabilitiesDirectory: string = CAPABILITIES_DIRECTORY,
 ): void {
   const loadingGuideline =
     loadingPolicy === "batch"
@@ -86,7 +87,7 @@ export function registerSkillGraph(
     async execute(_toolCallId, params, signal) {
       signal?.throwIfAborted();
       const options = getReadOptions(signal);
-      const graph = await loadGraph(CAPABILITIES_DIRECTORY, options);
+      const graph = await loadGraph(capabilitiesDirectory, options);
       signal?.throwIfAborted();
 
       const result =

@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  BENCHMARK_MODEL,
   BENCHMARK_SCHEDULE,
   BENCHMARK_SKILLS,
+  BENCHMARK_THINKING_LEVEL,
   createFlatSkillContents,
   evaluateBenchmarkProtocol,
 } from "../src/pilot-benchmark.ts";
@@ -18,9 +20,11 @@ test("defines five balanced flat and graph pilot pairs", () => {
   );
   assert.equal(new Set(BENCHMARK_SCHEDULE.map((slot) => slot.sequence)).size, 10);
   assert.equal(BENCHMARK_SKILLS.length, 5);
+  assert.equal(BENCHMARK_MODEL, "openai-codex/gpt-5.6-luna");
+  assert.equal(BENCHMARK_THINKING_LEVEL, "max");
 });
 
-test("requires successful graph expansion before mutation", () => {
+test("requires graph expansion and root loading before mutation", () => {
   assert.deepEqual(evaluateBenchmarkProtocol("flat", []), { conformant: true, reason: null });
   assert.deepEqual(
     evaluateBenchmarkProtocol("graph", [
@@ -42,6 +46,24 @@ test("requires successful graph expansion before mutation", () => {
         args: { operation: "expand", skill: "physics-object-create" },
         isError: false,
       },
+    ]),
+    {
+      conformant: false,
+      reason: "Graph run did not successfully load physics-object-create after expansion.",
+    },
+  );
+  assert.deepEqual(
+    evaluateBenchmarkProtocol("graph", [
+      {
+        name: "skill_graph",
+        args: { operation: "expand", skill: "physics-object-create" },
+        isError: false,
+      },
+      {
+        name: "skill_graph",
+        args: { operation: "load", skill: "physics-object-create" },
+        isError: false,
+      },
       { name: "upbge_control", args: { operation: "create_cube" }, isError: false },
     ]),
     { conformant: true, reason: null },
@@ -52,6 +74,11 @@ test("requires successful graph expansion before mutation", () => {
       {
         name: "skill_graph",
         args: { operation: "expand", skill: "physics-object-create" },
+        isError: false,
+      },
+      {
+        name: "skill_graph",
+        args: { operation: "load", skill: "physics-object-create" },
         isError: false,
       },
     ]),

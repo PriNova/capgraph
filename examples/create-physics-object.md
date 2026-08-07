@@ -38,7 +38,11 @@ Dependency-first skill order:
 4. `physics-object-create`, depth 0
 5. `physics-object-verify`, depth 1
 
-The expansion must contain six explicit edges. Each skill body must exclude YAML frontmatter.
+The expansion must contain six explicit edges and no skill prose.
+
+## Expected Progressive Load
+
+`load("physics-object-create")` must return only the root skill body without YAML frontmatter or internal file paths. Dependency and verification bodies are loaded separately only when needed.
 
 ## Automated Validation
 
@@ -48,7 +52,7 @@ Run:
 npm run test:workflow
 ```
 
-The test uses pi's public SDK to load the extension path declared by the package manifest. It creates an in-memory session, registers only extension tools, and calls `inspect` and `expand` directly. It does not use a model, access the network, persist a session, install the package, or run UPBGE.
+The test uses pi's public SDK to load the extension path declared by the package manifest. It creates an in-memory session, registers only extension tools, and calls `inspect`, `expand`, and `load` directly. It does not use a model, access the network, persist a session, install the package, or run UPBGE.
 
 ## Deferred UPBGE Validation
 

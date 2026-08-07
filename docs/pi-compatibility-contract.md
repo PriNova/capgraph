@@ -89,10 +89,9 @@ The pi package manifest must not register this complete directory under `pi.skil
 
 The extension must expose only:
 
-1. the requested root skill,
-2. its required local dependency subgraph,
-3. associated verification skills,
-4. associated recovery skills.
+1. metadata for the requested root's local dependency subgraph;
+2. full prose for skills explicitly loaded by canonical name;
+3. no unrelated capability metadata or prose.
 
 The complete in-memory graph index, unrelated capability metadata, unrelated skill frontmatter, and unrelated full `SKILL.md` contents must remain outside model context.
 
@@ -105,22 +104,26 @@ Minimum operations:
 ```text
 inspect(skill)
 expand(skill)
+load(skill)
 ```
 
 `inspect(skill)` must return exactly one metadata-only node with `skill`, `requires`, `verify_with`, and `recover_with`. It must not return skill prose or internal file paths.
 
-`expand(skill)` must return a structured object with:
+`expand(skill)` must return metadata only:
 
 - `root`: the canonical root skill name
-- `skills`: selected skills with `skill`, shortest `depth` from the root, and `content` without YAML frontmatter
+- `skills`: selected skills with `skill` and shortest `depth` from the root
 - `edges`: explicit `from`, `to`, and `relation` values for selected graph relationships
+
+`load(skill)` must return exactly one `skill` and its `content` without YAML frontmatter or internal file paths.
 
 The tool must:
 
 - accept an explicit canonical skill name
 - scan capability frontmatter and build the graph index outside model context
 - return deterministic results
-- read only skill files selected by expansion
+- not return skill bodies during expansion
+- return only the one requested skill body during `load`
 - report missing nodes, missing skill files, and cycles as tool errors
 - throw on execution failure so pi marks the tool result as an error
 - honor the provided abort signal during asynchronous work
@@ -144,7 +147,10 @@ For V0, expansion starts from a known root skill.
 7. include each selected skill exactly once,
 8. return explicit edges so shared and transitive relationships retain their source and target,
 9. assign each skill its shortest selected-edge depth from the root,
-10. order required dependencies before the root, then append verification skills and recovery skills deterministically.
+10. order required dependencies before the root, then append verification skills and recovery skills deterministically;
+11. not return skill prose.
+
+`load(skill)` returns one known skill body on demand. Execution workflows should expand the root, load the root, load dependency or verification prose only when needed, and load recovery prose only after a relevant failure.
 
 Only `requires` is recursive in V0. `verify_with` and `recover_with` are terminal associations for expansion. Cycles that use only verification or recovery edges are therefore not dependency cycles. Unrelated cycles outside the requested root's `requires` closure must not make that expansion fail. Missing references selected by steps 2–4 remain errors.
 
@@ -176,13 +182,14 @@ Flat and graph benchmark variants must use:
 
 Only capability-selection and composition support may differ.
 
-The flat variant must expose the benchmark skill set through normal pi skill discovery: all skill names and descriptions are available in the system prompt, while full `SKILL.md` contents load on demand. The graph variant must bypass normal discovery for graph-managed skills and expose only the expanded local selection through the Skill Graph extension.
+The flat variant must expose the benchmark skill set through normal pi skill discovery: all skill names and descriptions are available in the system prompt, while full `SKILL.md` contents load on demand. The graph variant must bypass normal discovery, expand only local metadata, and load selected full skill bodies on demand through the Skill Graph extension.
 
 Context measurements must distinguish:
 
 - always-present names and descriptions,
-- full skill prose loaded on demand,
-- graph tool-result content.
+- flat skill prose loaded on demand,
+- graph metadata results,
+- graph skill prose loaded on demand.
 
 Automated benchmark runs should use the pi SDK with in-memory sessions where practical. Benchmark integration is deferred until graph expansion works inside pi.
 
@@ -193,11 +200,12 @@ V0 is pi-compatible when all of these checks pass:
 1. Pi loads the local package without extension diagnostics.
 2. Every capability `SKILL.md` passes the official Agent Skills validation, including string-only `metadata` values and matching skill/directory names.
 3. `inspect` returns one requested metadata-only graph node without prose or internal paths.
-4. `expand` returns the expected structured `root`, `skills`, and `edges` output and only the expected local skill set.
-5. Unrelated skill prose does not appear in the model context or tool result.
-6. Missing nodes, invalid paths, missing files, and cycles produce clear errors.
-7. The extension works without an interactive UI.
-8. Unit tests run independently of UPBGE.
+4. `expand` returns the expected metadata-only `root`, `skills`, and `edges` output and only the expected local skill set.
+5. `load` returns exactly one requested skill body without frontmatter or internal paths.
+6. Unrelated skill prose does not appear in the model context or tool result.
+7. Missing nodes, invalid paths, missing files, and cycles produce clear errors.
+8. The extension works without an interactive UI.
+9. Unit tests run independently of UPBGE.
 
 ## 11. Deferred Items
 

@@ -10,10 +10,10 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
-import { expand, inspect, loadGraph, type GraphReadOptions } from "../src/graph.ts";
+import { expand, inspect, loadGraph, loadSkill, type GraphReadOptions } from "../src/graph.ts";
 
 const CAPABILITIES_DIRECTORY = fileURLToPath(new URL("../capabilities/", import.meta.url));
-const OPERATIONS = ["inspect", "expand"] as const;
+const OPERATIONS = ["inspect", "expand", "load"] as const;
 
 const parameters = Type.Object(
   {
@@ -53,12 +53,13 @@ const skillGraphTool = defineTool({
   name: "skill_graph",
   label: "Skill Graph",
   description:
-    `Inspect or expand a known capability by canonical skill name. ` +
+    `Inspect, expand, or load a known capability by canonical skill name. ` +
     `Results are limited to ${DEFAULT_MAX_LINES} lines or ${formatSize(DEFAULT_MAX_BYTES)}.`,
-  promptSnippet: "Inspect or expand the local capability graph from a known root skill",
+  promptSnippet: "Inspect, expand, or progressively load capabilities from a known root skill",
   promptGuidelines: [
     "Use skill_graph only when the task supplies or otherwise establishes a canonical root skill name.",
-    "For an execution task, call expand on the root capability before using execution tools so required, verification, and recovery skill prose is available.",
+    "For an execution task, call expand on the root capability to get metadata, then load the root capability before using execution tools.",
+    "Load dependency and verification skill prose only when needed for the current step; load recovery prose only after a relevant failure.",
     "Use inspect only when the task asks about one capability's direct graph metadata without executing it.",
   ],
   parameters,
@@ -72,7 +73,9 @@ const skillGraphTool = defineTool({
     const result =
       params.operation === "inspect"
         ? inspect(graph, params.skill)
-        : await expand(graph, params.skill, options);
+        : params.operation === "expand"
+          ? await expand(graph, params.skill, options)
+          : await loadSkill(graph, params.skill, options);
 
     signal?.throwIfAborted();
     return {

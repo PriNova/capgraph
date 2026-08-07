@@ -80,7 +80,7 @@ Pi's normal flat-skill discovery already uses progressive disclosure: it puts on
 
 The Skill Graph belongs to the **agent harness / external state**.
 
-Only a relevant local subgraph and selected full `SKILL.md` contents should be exposed to the agent by the graph extension.
+Only metadata for a relevant local subgraph and individually requested full `SKILL.md` contents should be exposed to the agent by the graph extension.
 
 Example:
 
@@ -95,13 +95,13 @@ ALL SKILLS / CAPABILITIES
  selected entry node
         │
         ▼
- dependency expansion
+ metadata-only dependency expansion
         │
         ▼
  small local subgraph
         │
         ▼
- selected SKILL.md prose
+ on-demand SKILL.md prose
         │
         ▼
        LLM
@@ -174,7 +174,7 @@ Pi discovers the skills and includes only their frontmatter names and descriptio
 
 ### Experiment: Skill Graph
 
-Same skill prose and the same on-demand principle, but graph metadata additionally provides relationships. Given a known root skill, the extension expands the local subgraph and returns only the selected full skill contents.
+Same skill prose and the same on-demand principle, but graph metadata additionally provides relationships. Given a known root skill, the extension expands local metadata first. The agent then loads the root and any dependency, verification, or recovery prose only when needed.
 
 ```text
 character-create
@@ -214,7 +214,7 @@ skill-graph/
 
 Keep graph loading and traversal in TypeScript so the pi extension can use them directly. Keep later UPBGE execution and verification scripts in Python where required by UPBGE.
 
-Store graph-managed skills under `capabilities/`, not a pi auto-discovered `skills/` package resource. This prevents the graph variant from adding every capability's frontmatter to the system prompt. The extension must load only the full skill files selected by graph expansion. This differs from normal pi discovery, which exposes all discovered names and descriptions but still loads full skill bodies only on demand.
+Store graph-managed skills under `capabilities/`, not a pi auto-discovered `skills/` package resource. This prevents the graph variant from adding every capability's frontmatter to the system prompt. Expansion returns metadata only; the extension loads one full skill body for each explicit `load(skill)` request. This differs from normal pi discovery, which exposes all discovered names and descriptions but still loads full skill bodies only on demand.
 
 Do not introduce a database until distributed skill metadata becomes a real limitation.
 
@@ -263,6 +263,7 @@ Expose only these operations through the pi `skill_graph` custom tool:
 ```text
 inspect(skill)
 expand(skill)
+load(skill)
 ```
 
 `inspect(skill)` returns exactly one node without skill prose or internal file paths:
@@ -276,7 +277,7 @@ expand(skill)
 }
 ```
 
-`expand(skill)` resolves the transitive dependency closure of one root skill and returns the minimal skill set needed to execute and verify it. Recovery skills are included as terminal nodes but are not traversed. The result separates selected skills from explicit graph edges:
+`expand(skill)` resolves the transitive dependency closure of one root skill and returns metadata for the minimal skill set needed to execute and verify it. Recovery skills are included as terminal nodes but are not traversed. The result separates selected skills from explicit graph edges without loading skill prose:
 
 ```json
 {
@@ -284,18 +285,15 @@ expand(skill)
   "skills": [
     {
       "skill": "object-create",
-      "depth": 1,
-      "content": "# Create Object\n\n..."
+      "depth": 1
     },
     {
       "skill": "physics-object-create",
-      "depth": 0,
-      "content": "# Create Physics Object\n\n..."
+      "depth": 0
     },
     {
       "skill": "physics-object-verify",
-      "depth": 1,
-      "content": "# Verify Physics Object\n\n..."
+      "depth": 1
     }
   ],
   "edges": [
@@ -313,7 +311,16 @@ expand(skill)
 }
 ```
 
-Dependencies use deterministic dependency-first order, followed by the root, verification skills, and recovery skills. `depth` is the shortest selected-edge distance from the root. Each selected skill appears once even when multiple edges reference it. Skill `content` excludes YAML frontmatter. Explicit edges preserve relationship source and target for shared or transitive dependencies. The canonical TypeScript output contracts are `InspectResult` and `ExpandResult` in `src/types/graph.ts`.
+`load(skill)` returns one body on demand:
+
+```json
+{
+  "skill": "physics-object-create",
+  "content": "# Create Physics Object\n\n..."
+}
+```
+
+Dependencies use deterministic dependency-first order, followed by the root, verification skills, and recovery skills. `depth` is the shortest selected-edge distance from the root. Each selected skill appears once even when multiple edges reference it. Explicit edges preserve relationship source and target for shared or transitive dependencies. `load(skill)` returns exactly one skill body without YAML frontmatter or internal paths. The canonical TypeScript output contracts are `InspectResult`, `ExpandResult`, and `LoadResult` in `src/types/graph.ts`.
 
 Defer `list()` and `search()` until a benchmark or workflow requires them. The important part is graph traversal, not search sophistication.
 
@@ -758,7 +765,7 @@ When a new problem layer appears, record it under `docs/open-questions.md` rathe
 
 The technical V0 vertical slice is complete and marked by the Git tag `v0-vertical-slice`. The implementation covers the known-root graph workflow, pi integration, controlled UPBGE execution, verification, automated tests, and a successful live tool-level run.
 
-The V0 pilot benchmark is defined in [V0 Flat Skills vs Skill Graph Pilot Benchmark](v0-pilot-benchmark-specification.md). The V0 research evaluation remains open until its five flat-skills and five Skill Graph runs are executed and recorded. Natural-language root resolution and general unrestricted UPBGE control remain deferred beyond V0.
+The V0 pilot benchmark is defined in [V0 Flat Skills vs Skill Graph Pilot Benchmark](v0-pilot-benchmark-specification.md). An exploratory pair exposed excessive context from eager skill-body expansion and is not part of the formal result set. The formal progressive-disclosure evaluation remains open until five flat-skills and five Skill Graph runs use the revised contract. Natural-language root resolution and general unrestricted UPBGE control remain deferred beyond V0.
 
 ### Completed:
 
@@ -770,23 +777,25 @@ The V0 pilot benchmark is defined in [V0 Flat Skills vs Skill Graph Pilot Benchm
 6. Implemented reachable `requires` cycle validation and tests that permit verification and recovery cycles and ignore unrelated dependency cycles.
 7. Adopted the Agent Skills `name` as the canonical graph node ID and removed the separate `capgraph-id` namespace.
 8. Implemented `inspect(skill)` with clear unknown-skill errors and metadata-only output.
-9. Implemented `expand(skill)` with deterministic dependency-first ordering, shortest-depth metadata, explicit edges, deduplication, selected skill bodies without frontmatter, terminal verification and recovery inclusion, and reachable `requires` cycle validation.
+9. Implemented metadata-only `expand(skill)` with deterministic dependency-first ordering, shortest-depth metadata, explicit edges, deduplication, terminal verification and recovery inclusion, and reachable `requires` cycle validation.
 10. Added unit tests that fix the exact inspection and expansion output contracts, including shared dependencies and non-traversal of outgoing terminal relations.
 11. Made the repository a loadable pi package with a package manifest, required peer dependencies, and an extension entry point.
-12. Registered `inspect(skill)` and `expand(skill)` through the pi `skill_graph` custom tool.
+12. Registered `inspect(skill)`, `expand(skill)`, and `load(skill)` through the pi `skill_graph` custom tool.
 13. Made graph reads abort-aware, rejected escaping capability paths, enforced pi output limits, and returned execution failures as pi tool errors.
-14. Validated local package loading and both tool operations in pi without connecting UPBGE.
+14. Validated local package loading and all graph tool operations in pi without connecting UPBGE.
 15. Added the `create_physics_object` workflow contract and an automated pi SDK integration test that runs without a model, network access, package installation, or persistent sessions.
 16. Validated the official add-on's direct TCP bridge against UPBGE 5.3.0 Alpha, including all four capability scripts and a successful verifier result.
 17. Added the `upbge_control` pi tool with fixed operation wrappers, validated object names, abort and timeout handling, protocol limits, response validation, and mock TCP tests.
 18. Completed the live tool-level workflow through the registered pi tool: status, cube creation, rigid-body configuration, collision configuration, and successful verification.
 19. Defined the controlled V0 pilot benchmark with five flat-skills runs, five Skill Graph runs, independent UPBGE verification, fixed run ordering, failure classification, and required measurements.
 20. Implemented the pi SDK pilot runner with isolated flat and graph resources, generated flat fixtures, a manual UPBGE reset gate, event and usage collection, independent verification, limits, reruns for infrastructure failures, and JSON Lines output.
-21. Removed workflow-order guidance from the UPBGE execution tool, directed execution tasks to graph expansion, and made successful root expansion before mutation an explicit benchmark protocol requirement.
+21. Removed workflow-order guidance from the UPBGE execution tool and made successful root expansion before mutation an explicit benchmark protocol requirement.
+22. Used the first paired pilot result to replace eager skill-body expansion with metadata-only expansion and progressive `load(skill)` disclosure; graph benchmark runs now require root expansion and root loading before mutation.
+23. Fixed the formal pilot default at `openai-codex/gpt-5.6-luna` with reasoning level `max`.
 
 ### Next tasks:
 
-1. Execute the ten specified pilot runs and record the report.
+1. Execute a fresh ten-run progressive-disclosure pilot and record the report.
 
 Do not begin with a separate CLI, intent search, self-learning, or a database.
 
@@ -810,7 +819,7 @@ physics-object-create
  ├─ requires → collision-add
  └─ verify_with → physics-object-verify
 
-Each skill uses its Agent Skills `name` as its graph node ID and declares outgoing relationships through standard-compliant string values under `metadata` in its `SKILL.md`. Expansion recursively follows `requires` from the root, then includes direct verification and recovery references from that dependency closure. It does not traverse outgoing relations from those added verification and recovery nodes. The pi extension builds the graph index outside model context, then reads only the selected full `SKILL.md` files and returns structured `skills` and `edges` through the `skill_graph` tool result.
+Each skill uses its Agent Skills `name` as its graph node ID and declares outgoing relationships through standard-compliant string values under `metadata` in its `SKILL.md`. Expansion recursively follows `requires` from the root, then includes direct verification and recovery references from that dependency closure. It does not traverse outgoing relations from those added verification and recovery nodes. The pi extension builds the graph index outside model context and returns structured `skills` and `edges` as metadata. The agent then loads the root skill body and any dependency or verification body needed for the current step. Recovery skill prose remains unloaded unless a relevant failure occurs.
 
 Agent executes task.
 

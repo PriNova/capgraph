@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import type { ExpandResult, InspectResult } from "../src/types/graph.ts";
+import type { ExpandResult, InspectResult, LoadResult } from "../src/types/graph.ts";
 
 import {
   buildGraph,
@@ -11,6 +11,7 @@ import {
   GraphValidationError,
   inspect,
   loadGraph,
+  loadSkill,
   parseCapabilitySkill,
   validateRequiresAcyclic,
 } from "../src/graph.ts";
@@ -118,6 +119,7 @@ test("rejects inspection and expansion of an unknown skill", async () => {
 
   assert.throws(() => inspect(graph, "missing-create"), expectedError);
   await assert.rejects(expand(graph, "missing-create"), expectedError);
+  await assert.rejects(loadSkill(graph, "missing-create"), expectedError);
 });
 
 test("expand returns the physics workflow as structured skills and edges", async () => {
@@ -148,19 +150,30 @@ test("expand returns the physics workflow as structured skills and edges", async
     { from: "rigid-body-add", to: "object-create", relation: "requires" },
     { from: "collision-add", to: "object-create", relation: "requires" },
   ]);
-  assert.deepEqual(
-    result.skills.map(({ content }) => content.split("\n", 1)[0]),
-    [
-      "# Create Object",
-      "# Add Rigid Body",
-      "# Add Collision",
-      "# Create Physics Object",
-      "# Verify Physics Object",
-    ],
-  );
   for (const skill of result.skills) {
-    assert.doesNotMatch(skill.content, /^---/);
+    assert.deepEqual(Object.keys(skill), ["skill", "depth"]);
   }
+});
+
+test("load returns one skill body without frontmatter or paths", async () => {
+  const capabilitiesPath = fileURLToPath(new URL("../capabilities/", import.meta.url));
+  const graph = await loadGraph(capabilitiesPath);
+  const result: LoadResult = await loadSkill(graph, "physics-object-create");
+
+  assert.equal(result.skill, "physics-object-create");
+  assert.match(result.content, /^# Create Physics Object/);
+  assert.doesNotMatch(result.content, /^---/);
+  assert.deepEqual(Object.keys(result), ["skill", "content"]);
+});
+
+test("load honors an aborted read", async () => {
+  const capabilitiesPath = fileURLToPath(new URL("../capabilities/", import.meta.url));
+  const graph = await loadGraph(capabilitiesPath);
+  const controller = new AbortController();
+  const reason = new Error("Test cancellation.");
+  controller.abort(reason);
+
+  await assert.rejects(loadSkill(graph, "physics-object-create", { signal: controller.signal }), reason);
 });
 
 test("expand orders recursive dependencies once before the root and terminal skills", async () => {

@@ -8,7 +8,7 @@ Research question:
 
 > Given the known root capability `physics-object-create`, does explicit graph expansion help the same coding agent complete and verify the workflow more reliably or with less exploration and context than flat skill discovery?
 
-This is a harness pilot, not broad evidence for or against Skill Graphs. It uses one simple workflow and ten model runs.
+This is a harness pilot, not broad evidence for or against Skill Graphs. It uses one simple workflow and ten model runs. Results from the earlier eager-expansion exploratory pair must not be mixed with this progressive-disclosure series.
 
 ## 2. Fixed Task
 
@@ -54,9 +54,10 @@ The five skills are:
 
 - Do not expose graph-managed capabilities through normal pi skill discovery.
 - Register `skill_graph` and `upbge_control`.
-- Require the agent to call `expand` for the supplied root capability before the first UPBGE mutation.
+- Require the agent to call metadata-only `expand` for the supplied root capability.
+- Require the agent to call `load("physics-object-create")` before the first UPBGE mutation.
+- Let the agent load dependency and verification prose only when needed and recovery prose only after a relevant failure.
 - Reserve `inspect` for direct metadata questions; it does not satisfy the execution benchmark protocol.
-- Expose only skill bodies selected by graph expansion.
 
 Expected expansion:
 
@@ -73,6 +74,8 @@ physics-object-create
 Only capability selection and composition support may differ. The skill prose and execution interface must remain equivalent.
 
 ## 4. Controlled Configuration
+
+The formal pilot defaults to `openai-codex/gpt-5.6-luna` with reasoning level `max`.
 
 Freeze and record these values before the first run:
 
@@ -165,7 +168,7 @@ Classify outcomes as:
 
 - `success`: independent verification passes and the graph condition satisfies its expansion protocol;
 - `task_failure`: agent stops, exceeds a limit, or leaves invalid UPBGE state;
-- `protocol_failure`: a graph run does not successfully call `expand("physics-object-create")` before its first UPBGE mutation;
+- `protocol_failure`: a graph run does not successfully expand metadata and load `physics-object-create` before its first UPBGE mutation;
 - `infrastructure_failure`: model service, pi runtime, benchmark harness, UPBGE process, or bridge fails independently of agent behavior.
 
 An infrastructure failure does not consume its scheduled slot. Restore clean state and repeat that slot with the same condition. Record both the invalid attempt and its reason.
@@ -186,18 +189,21 @@ An infrastructure failure does not consume its scheduled slot. Restore clean sta
 - provider-reported cost when available;
 - operation sequence;
 - whether the agent called verification;
-- whether the graph run expanded the root before mutation;
+- whether the graph run expanded metadata and loaded the root before mutation;
 - skill files loaded with `read`;
+- graph skills loaded with `load`;
 - bytes of full skill prose returned by `read`;
-- bytes returned by `skill_graph`;
+- bytes of graph metadata returned by `inspect` or `expand`;
+- bytes of graph skill prose returned by `load`;
 - bytes of always-present skill catalog entries.
 
 Keep context categories separate:
 
 1. always-present skill names and descriptions;
-2. full skill prose loaded on demand;
-3. graph tool results;
-4. total provider-reported token usage.
+2. flat skill prose loaded on demand;
+3. graph metadata results;
+4. graph skill prose loaded on demand;
+5. total provider-reported token usage.
 
 Do not claim exact per-category token counts when only byte counts are available.
 
@@ -241,7 +247,8 @@ Write one JSON record per attempt. Minimum shape:
   "contextBytes": {
     "skillCatalog": 0,
     "skillBodiesRead": 0,
-    "graphResults": 0
+    "graphMetadata": 0,
+    "graphSkillBodies": 0
   },
   "independentVerification": {
     "ok": true,
@@ -274,7 +281,8 @@ Minimum table:
 | Median output tokens | x | x |
 | Skill catalog bytes | x | x |
 | Median skill body bytes | x | x |
-| Median graph result bytes | x | x |
+| Median graph metadata bytes | x | x |
+| Median graph skill body bytes | x | x |
 
 Also list:
 
@@ -291,8 +299,8 @@ The pilot is complete when:
 
 1. all ten valid scheduled runs finish;
 2. every run starts from verified clean state;
-3. all graph runs successfully expand the supplied root before their first UPBGE mutation;
-4. all run records contain configuration, event, usage, context, protocol, and independent verification data;
+3. all graph runs successfully expand metadata and load the supplied root before their first UPBGE mutation;
+4. all run records contain configuration, event, usage, separated context categories, protocol, and independent verification data;
 5. no condition receives unplanned resources or human steering;
 6. summary metrics are generated from raw records;
 7. results and limitations are recorded without a favorable-result assumption.
@@ -302,12 +310,12 @@ The pilot is complete when:
 The SDK runner is available at `benchmarks/pilot.ts`:
 
 ```bash
-npm run benchmark:pilot -- --model <provider/model> --thinking medium
+npm run benchmark:pilot
 ```
 
-Use `--start <1-10>` and `--end <1-10>` to execute or resume part of the fixed schedule. Use `--output <path>` to append records to a specific JSON Lines file. Local JSON Lines results under `benchmarks/results/` are ignored by Git so they do not change the recorded dirty-worktree state during resumed runs.
+The default is `openai-codex/gpt-5.6-luna` with reasoning level `max`. Use `--model` or `--thinking` only for explicitly recorded exploratory variants. Use `--start <1-10>` and `--end <1-10>` to execute or resume part of the fixed schedule. Use `--output <path>` to append records to a specific JSON Lines file. Local JSON Lines results under `benchmarks/results/` are ignored by Git so they do not change the recorded dirty-worktree state during resumed runs.
 
-A graph attempt is marked `protocol_failure` unless it successfully expands `physics-object-create` before its first UPBGE mutation. Independent scene verification alone is not enough for graph-condition success.
+A graph attempt is marked `protocol_failure` unless it successfully expands metadata and loads `physics-object-create` before its first UPBGE mutation. Independent scene verification alone is not enough for graph-condition success.
 
 The current runner uses a manual reset gate. It checks bridge availability and confirms that `CapgraphBenchmarkCube` is absent, but it does not mutate the scene during setup. When the object exists, restore the empty scene manually and press Enter to check again.
 
@@ -316,7 +324,7 @@ The current runner uses a manual reset gate. It checks bridge availability and c
 - Only one workflow is tested.
 - The workflow has shallow, direct dependencies.
 - Allowed `upbge_control` operation names remain visible to both conditions, but its prompt guidance does not state the workflow recipe.
-- The composite skill prose also describes the sequence.
+- The composite root skill prose describes the sequence, so the agent may not need every dependency body.
 - No recovery capability is present, so recovery success is not measured.
 - Five runs per condition are enough to validate the harness, not to establish general effectiveness.
 

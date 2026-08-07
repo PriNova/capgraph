@@ -9,6 +9,7 @@ import {
   type ExpansionEdge,
   type GraphRelation,
   type InspectResult,
+  type LoadResult,
   type SkillGraph,
   type SkillName,
   type SkillNode,
@@ -300,6 +301,16 @@ async function readSkillBody(
   }
 }
 
+export async function loadSkill(
+  graph: SkillGraph,
+  skill: SkillName,
+  options: GraphReadOptions = {},
+): Promise<LoadResult> {
+  throwIfAborted(options.signal);
+  const node = getNode(graph, skill);
+  return { skill, content: await readSkillBody(node, options) };
+}
+
 export async function expand(
   graph: SkillGraph,
   root: SkillName,
@@ -373,19 +384,13 @@ export async function expand(
   }
 
   const orderedSkills = [...dependencyOrder, ...terminalOrder];
-  const skills = await Promise.all(
-    orderedSkills.map(async (skill) => {
-      const depth = depths.get(skill);
-      if (depth === undefined) {
-        throw new GraphValidationError(`Cannot determine expansion depth for skill "${skill}".`);
-      }
-      return {
-        skill,
-        depth,
-        content: await readSkillBody(getNode(graph, skill), options),
-      };
-    }),
-  );
+  const skills = orderedSkills.map((skill) => {
+    const depth = depths.get(skill);
+    if (depth === undefined) {
+      throw new GraphValidationError(`Cannot determine expansion depth for skill "${skill}".`);
+    }
+    return { skill, depth };
+  });
 
   return { root, skills, edges };
 }

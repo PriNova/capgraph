@@ -20,7 +20,7 @@ Capgraph separates three layers:
 2. **Skill prose** in `SKILL.md` provides model-facing decisions, API guidance, failure modes, and recovery instructions.
 3. **Executable scripts** perform and verify domain operations.
 
-The complete graph stays outside model context. The pi extension exposes only the local subgraph selected from a known root capability.
+The complete graph stays outside model context. The pi extension exposes metadata for the local subgraph selected from a known root capability, then loads individual skill bodies on demand.
 
 ## First Vertical Slice
 
@@ -79,17 +79,17 @@ Run only the pi workflow integration test:
 npm run test:workflow
 ```
 
-The current workflow test loads the pi extension and validates graph inspection and expansion without a model, network connection, persistent session, or UPBGE process.
+The current workflow test loads the pi extension and validates graph inspection, metadata-only expansion, and one-skill loading without a model, network connection, persistent session, or UPBGE process.
 
 ## Pilot Benchmark Runner
 
 Run a selected part of the controlled flat-skills versus Skill Graph pilot:
 
 ```bash
-npm run benchmark:pilot -- --model <provider/model> --thinking medium --start 1 --end 2
+npm run benchmark:pilot -- --start 1 --end 2
 ```
 
-The runner uses a manual UPBGE reset gate. Before each model run, it confirms that the bridge is available and `CapgraphBenchmarkCube` does not exist, then waits for confirmation. It never removes or resets UPBGE objects. A graph run must successfully expand `physics-object-create` before its first UPBGE mutation or it is recorded as `protocol_failure`. Raw attempt records are written as ignored JSON Lines under `benchmarks/results/` unless `--output <path>` is supplied.
+The default benchmark model is `openai-codex/gpt-5.6-luna` with `max` reasoning. `--model` and `--thinking` can override it for exploratory runs. The runner uses a manual UPBGE reset gate. Before each model run, it confirms that the bridge is available and `CapgraphBenchmarkCube` does not exist, then waits for confirmation. It never removes or resets UPBGE objects. A graph run must successfully expand and load `physics-object-create` before its first UPBGE mutation or it is recorded as `protocol_failure`. Raw attempt records are written as ignored JSON Lines under `benchmarks/results/` unless `--output <path>` is supplied.
 
 See [V0 pilot benchmark specification](docs/v0-pilot-benchmark-specification.md) for the fixed ten-run schedule and measurement contract.
 
@@ -103,7 +103,7 @@ pi -e .
 
 The package registers two custom tools:
 
-- `skill_graph` inspects or expands a known root capability.
+- `skill_graph` inspects a node, expands local metadata, or loads one known skill body.
 - `upbge_control` executes an allowed editor operation through the bridge at `127.0.0.1:9876`.
 
 Allowed UPBGE operations are `status`, `create_cube`, `add_rigid_body`, `add_collision`, and `verify_physics_object`. The tool builds fixed Python wrappers and loads only the repository capability scripts. It does not accept model-authored Python or configurable script paths.

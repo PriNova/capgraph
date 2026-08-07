@@ -108,10 +108,7 @@ test("runs the create physics object workflow through the pi extension", async (
     assert.deepEqual(
       expandResult.skills.map((skill) => {
         assert.ok(isRecord(skill));
-        if (typeof skill.content !== "string") {
-          assert.fail("expanded skill content must be a string");
-        }
-        assert.doesNotMatch(skill.content, /^---/);
+        assert.deepEqual(Object.keys(skill), ["skill", "depth"]);
         return { skill: skill.skill, depth: skill.depth };
       }),
       [
@@ -134,6 +131,22 @@ test("runs the create physics object workflow through the pi extension", async (
       { from: "rigid-body-add", to: "object-create", relation: "requires" },
       { from: "collision-add", to: "object-create", relation: "requires" },
     ]);
+
+    const loadResult = parseTextResult(
+      await skillGraph.execute(
+        "load-physics-object",
+        { operation: "load", skill: "physics-object-create" },
+        signal,
+      ),
+    );
+    assert.ok(isRecord(loadResult));
+    assert.equal(loadResult.skill, "physics-object-create");
+    if (typeof loadResult.content !== "string") {
+      assert.fail("loaded skill content must be a string");
+    }
+    assert.match(loadResult.content, /^# Create Physics Object/);
+    assert.doesNotMatch(loadResult.content, /^---/);
+    assert.deepEqual(Object.keys(loadResult), ["skill", "content"]);
   } finally {
     session.dispose();
   }

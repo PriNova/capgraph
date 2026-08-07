@@ -27,7 +27,6 @@ export interface InspectResult {
 export interface ExpandedSkill {
   readonly skill: SkillName;
   readonly depth: number;
-  readonly content: string;
 }
 
 export interface ExpansionEdge {
@@ -40,4 +39,9 @@ export interface ExpandResult {
   readonly root: SkillName;
   readonly skills: readonly ExpandedSkill[];
   readonly edges: readonly ExpansionEdge[];
+}
+
+export interface LoadResult {
+  readonly skill: SkillName;
+  readonly content: string;
 }

@@ -2,6 +2,8 @@ import { parseFrontmatter } from "@earendil-works/pi-coding-agent";
 import { stringify } from "yaml";
 
 export const BENCHMARK_NAME = "v0-physics-object-pilot";
+export const BENCHMARK_MODEL = "openai-codex/gpt-5.6-luna";
+export const BENCHMARK_THINKING_LEVEL = "max";
 export const BENCHMARK_OBJECT_NAME = "CapgraphBenchmarkCube";
 export const BENCHMARK_PROMPT = `Create a physics-enabled cube named ${BENCHMARK_OBJECT_NAME} in UPBGE.
 
@@ -83,6 +85,27 @@ export function evaluateBenchmarkProtocol(
     };
   }
 
+  const loadIndex = calls.findIndex(
+    (call) =>
+      call.name === "skill_graph" &&
+      call.isError === false &&
+      isRecord(call.args) &&
+      call.args.operation === "load" &&
+      call.args.skill === "physics-object-create",
+  );
+  if (loadIndex === -1) {
+    return {
+      conformant: false,
+      reason: "Graph run did not successfully load physics-object-create after expansion.",
+    };
+  }
+  if (loadIndex < expandIndex) {
+    return {
+      conformant: false,
+      reason: "Graph run loaded the root capability before expanding its metadata.",
+    };
+  }
+
   const firstMutationIndex = calls.findIndex(
     (call) =>
       call.name === "upbge_control" &&
@@ -95,6 +118,12 @@ export function evaluateBenchmarkProtocol(
     return {
       conformant: false,
       reason: "Graph run expanded the root capability only after UPBGE mutation started.",
+    };
+  }
+  if (firstMutationIndex !== -1 && loadIndex > firstMutationIndex) {
+    return {
+      conformant: false,
+      reason: "Graph run loaded the root capability only after UPBGE mutation started.",
     };
   }
 

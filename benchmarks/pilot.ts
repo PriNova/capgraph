@@ -20,11 +20,13 @@ import {
 } from "@earendil-works/pi-coding-agent";
 
 import {
+  BENCHMARK_MODEL,
   BENCHMARK_NAME,
   BENCHMARK_OBJECT_NAME,
   BENCHMARK_PROMPT,
   BENCHMARK_SCHEDULE,
   BENCHMARK_SKILLS,
+  BENCHMARK_THINKING_LEVEL,
   createFlatSkillContents,
   evaluateBenchmarkProtocol,
   type BenchmarkCondition,
@@ -103,7 +105,8 @@ interface AttemptRecord {
   readonly contextBytes: {
     readonly skillCatalog: number;
     readonly skillBodiesRead: number;
-    readonly graphResults: number;
+    readonly graphMetadata: number;
+    readonly graphSkillBodies: number;
   };
   readonly independentVerification: VerificationRecord;
   readonly protocol: {
@@ -160,8 +163,8 @@ function parsePositiveInteger(value: string | undefined, option: string): number
 }
 
 function parseOptions(args: readonly string[]): RunnerOptions {
-  let model: string | undefined;
-  let thinkingLevel: ThinkingLevel | undefined;
+  let model = BENCHMARK_MODEL;
+  let thinkingLevel: ThinkingLevel = BENCHMARK_THINKING_LEVEL;
   let startSequence = 1;
   let endSequence = BENCHMARK_SCHEDULE.length;
   let outputPath: string | undefined;
@@ -194,8 +197,6 @@ function parseOptions(args: readonly string[]): RunnerOptions {
     }
   }
 
-  if (model === undefined) throw new Error("--model provider/model is required.");
-  if (thinkingLevel === undefined) throw new Error("--thinking level is required.");
   if (startSequence > endSequence) throw new Error("--start must not exceed --end.");
 
   const timestamp = new Date().toISOString().replaceAll(":", "-").replace(".", "-");
@@ -407,7 +408,8 @@ async function runAttempt(
   const calls = new Map<string, ToolCallRecord>();
   let turns = 0;
   let skillBodiesRead = 0;
-  let graphResults = 0;
+  let graphMetadata = 0;
+  let graphSkillBodies = 0;
   let limitReason: string | undefined;
   let abortRequested = false;
 
@@ -443,8 +445,12 @@ async function runAttempt(
           isSkillFile(call.args.path)
         ) {
           skillBodiesRead += textBytes(event.result);
-        } else if (call.name === "skill_graph") {
-          graphResults += textBytes(event.result);
+        } else if (call.name === "skill_graph" && isRecord(call.args)) {
+          if (call.args.operation === "load") {
+            graphSkillBodies += textBytes(event.result);
+          } else {
+            graphMetadata += textBytes(event.result);
+          }
         }
       }
     }
@@ -520,7 +526,12 @@ async function runAttempt(
       cacheWrite: stats.tokens.cacheWrite,
       cost: stats.cost,
     },
-    contextBytes: { skillCatalog: catalogBytes, skillBodiesRead, graphResults },
+    contextBytes: {
+      skillCatalog: catalogBytes,
+      skillBodiesRead,
+      graphMetadata,
+      graphSkillBodies,
+    },
     independentVerification: verification,
     protocol,
     failureReason,

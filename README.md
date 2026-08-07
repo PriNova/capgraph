@@ -4,6 +4,16 @@ Capgraph is a small experimental capability-graph layer for Agent Skills. It tes
 
 Capgraph is a completed V0 → V0.1 → V1 experiment, not a general agent framework. UPBGE is the test domain; graph traversal remains domain-independent.
 
+## Technical Report
+
+**Capgraph: Explicit Capability Relations for Agent Skills — Design and Controlled Evaluation**
+
+Tino Wening, Independent Researcher — August 2026
+
+[Read the Technical Report (PDF)](paper/Capgraph-Technical-Report-v1.0.pdf)
+
+The report presents the Capgraph design, related work, and the controlled V0 → V0.1 → V1 evaluation across 36 formal model runs.
+
 ## Core Architecture
 
 ```text

@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import type { ThinkingLevel } from "@earendil-works/pi-ai";
 import { createAgentSession, DefaultResourceLoader, formatSkillsForPrompt, getAgentDir, ModelRuntime, resolveCliModel, SessionManager, SettingsManager, VERSION as PI_VERSION, type AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 
-import { createV1FlatSkillContents, evaluateV1Protocol, V1_BENCHMARK_MODEL, V1_BENCHMARK_NAME, V1_BENCHMARK_THINKING_LEVEL, V1_NORMAL_LOADED_SKILLS, V1_OBJECT_NAME, V1_SCHEDULE, v1Prompt, v1SessionToolNames, type V1Condition, type V1Slot } from "../src/v1-composition-benchmark.ts";
+import { createV1FlatSkillContents, evaluateV1Protocol, isCompleteV1VerifierCall, V1_BENCHMARK_MODEL, V1_BENCHMARK_NAME, V1_BENCHMARK_THINKING_LEVEL, V1_NORMAL_LOADED_SKILLS, V1_OBJECT_NAME, V1_SCHEDULE, v1IrrelevantLoadedSkills, v1Prompt, v1SessionToolNames, type V1Condition, type V1Slot } from "../src/v1-composition-benchmark.ts";
 import { buildV1FaultControlCode, buildV1ResetCode, executeV1UpbgeOperation } from "../src/v1-upbge-control.ts";
 import { sendUpbgeCode } from "../src/upbge-control.ts";
 
@@ -104,8 +104,9 @@ async function attempt(slot: V1Slot, attemptNumber: number, opts: Options, confi
   });
   const started = new Date(); const timer = setTimeout(() => abort("Exceeded 5 minute duration."), TIMEOUT_MS); let runError: string | undefined;
   try { await session.prompt(v1Prompt(slot.variant), { source: "extension" }); await session.waitForIdle(); } catch (error) { runError = message(error); } finally { clearTimeout(timer); unsubscribe(); }
-  const toolCalls = [...calls.values()]; const firstVerifyCall = toolCalls.find((call) => call.name === "upbge_control" && record(call.args) && call.args.operation === "verify_state");
-  const verifyCalls = toolCalls.filter((call) => call.name === "upbge_control" && record(call.args) && call.args.operation === "verify_state");
+  const toolCalls = [...calls.values()];
+  const verifyCalls = toolCalls.filter(isCompleteV1VerifierCall);
+  const firstVerifyCall = verifyCalls[0];
   const firstVerifier = firstVerifyCall ? parseToolVerification(firstVerifyCall.result) : undefined;
   const secondVerifier = verifyCalls[1] ? parseToolVerification(verifyCalls[1].result) : undefined;
   const faultState = await sendUpbgeCode(buildV1FaultControlCode(false));
@@ -113,7 +114,7 @@ async function attempt(slot: V1Slot, attemptNumber: number, opts: Options, confi
   const stats = session.getSessionStats(), sessionError = session.agent.state.errorMessage; session.dispose();
   const protocol = evaluateV1Protocol(slot.condition, slot.variant, toolCalls); const failureReason = limit ?? runError ?? sessionError ?? independent.error ?? protocol.reason;
   const status = failureReason && infrastructure(failureReason) ? "infrastructure_failure" : !protocol.conformant ? "protocol_failure" : independent.ok && !failureReason ? "success" : "task_failure";
-  const uniqueLoaded = [...new Set(loadedSkills)]; const irrelevant = uniqueLoaded.filter((name) => !V1_NORMAL_LOADED_SKILLS.includes(name as typeof V1_NORMAL_LOADED_SKILLS[number]) && name !== "vehicle-collision-repair");
+  const irrelevant = v1IrrelevantLoadedSkills(slot.variant, loadedSkills);
   const operations = toolCalls.filter((call) => call.name === "upbge_control" && record(call.args)).map((call) => String((call.args as Record<string, unknown>).operation));
   const usage: Usage = { input: stats.tokens.input, output: stats.tokens.output, cacheRead: stats.tokens.cacheRead, cacheWrite: stats.tokens.cacheWrite, cost: stats.cost };
   return { benchmark: V1_BENCHMARK_NAME, sequence: slot.sequence, block: slot.block, position: slot.position, attempt: attemptNumber, condition: slot.condition, variant: slot.variant, status, gitCommit: config.commit, gitDirty: config.dirty, piVersion: PI_VERSION, packageVersion: config.packageVersion, model: `${resolved.model.provider}/${resolved.model.id}`, thinkingLevel: opts.thinking, upbgeVersion: "5.3.0 Alpha", upbgeBuildHash: process.env.CAPGRAPH_UPBGE_BUILD_HASH ?? "9a92b08bb47b", startedAt: started.toISOString(), durationMs: Date.now() - started.getTime(), turns, agentToolCalls: toolCalls.length, failedToolCalls: toolCalls.filter((call) => call.isError).length, toolCalls, usage, totalAvailableCapabilityCount: Object.keys(config.hashes).length, totalCatalogBytes: config.totalBytes, relevantExpandedClosureCount: V1_NORMAL_LOADED_SKILLS.length, relevantClosureBytes: config.relevantBytes, contextBytes: { flatCatalog: catalogBytes, graphMetadata: graphMetadataBytes, loadedSkillProse: proseBytes }, exactSkillsLoaded: loadedSkills, irrelevantSkillBodiesLoaded: irrelevant, selectedVerifier: record(firstVerifyCall?.args) ? firstVerifyCall.args.profile ?? null : null, firstVerifierResult: firstVerifier?.ok ?? null, firstVerifierFailureDetails: firstVerifier?.failures ?? [], recoverySkillLoaded: loadedSkills.includes("vehicle-collision-repair"), recoveryOperationCalled: operations.includes("set_collision_mask"), secondVerifierResult: secondVerifier?.ok ?? null, deduplicatedSharedDependencies: ["object-resolve"], exactExecutionSequence: operations.filter((operation) => !["verify_state", "set_collision_mask"].includes(operation)), exactVerificationSequence: operations.filter((operation) => operation === "verify_state"), exactRecoverySequence: operations.filter((operation) => operation === "set_collision_mask"), faultState, independentVerification: independent, protocol, capabilityHashes: config.hashes, failureReason: failureReason ?? null };

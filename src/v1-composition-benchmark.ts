@@ -65,14 +65,29 @@ export function v1Prompt(variant: V1Variant): string {
   return `Create one small controllable vehicle named ${V1_OBJECT_NAME} in the known empty UPBGE scene.${variant === "recovery" ? " The fixture may report an observed runtime fault; preserve valid state while resolving it." : ""}\n\nKnown root capability:\n${V1_ROOT_SKILL}\n\nComplete the task and verify actual editor state. Stop after verification passes or completion is impossible.`;
 }
 
-interface ProtocolCall { readonly name: string; readonly args: unknown; readonly isError?: boolean }
+export interface V1RecordedToolCall { readonly name: string; readonly args: unknown; readonly isError?: boolean }
 interface ProtocolResult { readonly conformant: boolean; readonly reason: string | null }
 function record(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
-function graphCall(call: ProtocolCall, operation: string, skill = V1_ROOT_SKILL): boolean {
+
+export function isCompleteV1VerifierCall(call: V1RecordedToolCall): boolean {
+  return call.name === "upbge_control" &&
+    call.isError === false &&
+    record(call.args) &&
+    call.args.operation === "verify_state" &&
+    call.args.object_name === V1_OBJECT_NAME &&
+    call.args.profile === "vehicle";
+}
+
+export function v1IrrelevantLoadedSkills(variant: V1Variant, loadedSkills: readonly string[]): string[] {
+  const relevant = new Set<string>(V1_NORMAL_LOADED_SKILLS);
+  if (variant === "recovery") relevant.add("vehicle-collision-repair");
+  return [...new Set(loadedSkills)].filter((skill) => !relevant.has(skill));
+}
+function graphCall(call: V1RecordedToolCall, operation: string, skill = V1_ROOT_SKILL): boolean {
   return call.name === "skill_graph" && call.isError === false && record(call.args) && call.args.operation === operation && call.args.skill === skill;
 }
 
-export function evaluateV1Protocol(condition: V1Condition, variant: V1Variant, calls: readonly ProtocolCall[]): ProtocolResult {
+export function evaluateV1Protocol(condition: V1Condition, variant: V1Variant, calls: readonly V1RecordedToolCall[]): ProtocolResult {
   if (condition === "flat") {
     return calls.some((call) => call.name === "read" && call.isError === true)
       ? { conformant: false, reason: "Flat run attempted a blocked or failed fixture read." }

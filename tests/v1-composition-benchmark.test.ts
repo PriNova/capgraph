@@ -6,8 +6,9 @@ import test from "node:test";
 import { expand, loadGraph, loadMany } from "../src/graph.ts";
 import { buildV1FaultControlCode, buildV1ResetCode, buildV1UpbgeCode, V1_UPBGE_OPERATIONS } from "../src/v1-upbge-control.ts";
 import {
-  createV1FlatSkillContents, evaluateV1Protocol, V1_EXPECTED_ORDER, V1_NORMAL_LOADED_SKILLS,
-  V1_SCHEDULE, V1_UNRELATED_SKILLS, v1SessionToolNames,
+  createV1FlatSkillContents, evaluateV1Protocol, isCompleteV1VerifierCall,
+  V1_EXPECTED_ORDER, V1_NORMAL_LOADED_SKILLS, V1_SCHEDULE, V1_UNRELATED_SKILLS,
+  v1IrrelevantLoadedSkills, v1SessionToolNames,
 } from "../src/v1-composition-benchmark.ts";
 import { V1_UPBGE_PARAMETER_DESCRIPTIONS, V1_UPBGE_PROMPT_GUIDELINES, V1_UPBGE_PROMPT_SNIPPET, V1_UPBGE_TOOL_DESCRIPTION } from "../extensions/v1-upbge-control.ts";
 import { isAllowedV1FlatRead } from "../extensions/v1-flat-read-gate.ts";
@@ -76,6 +77,30 @@ test("condition read access cannot expose benchmark implementation", () => {
   assert.deepEqual(v1SessionToolNames("flat").filter((name) => name === "upbge_control"), v1SessionToolNames("graph").filter((name) => name === "upbge_control"));
   assert.equal(evaluateV1Protocol("flat", "normal", [{ name: "read", args: { path: "package.json" }, isError: true }]).conformant, false);
   assert.equal(evaluateV1Protocol("graph", "normal", [{ name: "read", args: { path: "anything" }, isError: false }]).conformant, false);
+});
+
+test("classifies only successful complete vehicle verifier calls", () => {
+  assert.equal(isCompleteV1VerifierCall({
+    name: "upbge_control",
+    args: { operation: "verify_state", profile: "vehicle" },
+    isError: true,
+  }), false);
+  assert.equal(isCompleteV1VerifierCall({
+    name: "upbge_control",
+    args: { operation: "verify_state", object_name: "CapgraphVehicle", profile: "vehicle" },
+    isError: false,
+  }), true);
+  assert.equal(isCompleteV1VerifierCall({
+    name: "upbge_control",
+    args: { operation: "verify_state", object_name: "CapgraphVehicle", profile: "static_scene" },
+    isError: false,
+  }), false);
+});
+
+test("classifies recovery prose by task variant", () => {
+  const loaded = ["vehicle-create", "vehicle-verify", "vehicle-collision-repair", "light-create", "light-create"];
+  assert.deepEqual(v1IrrelevantLoadedSkills("normal", loaded), ["vehicle-collision-repair", "light-create"]);
+  assert.deepEqual(v1IrrelevantLoadedSkills("recovery", loaded), ["light-create"]);
 });
 
 test("fixed wrappers expose no model-authored code and verification does not inject faults", () => {

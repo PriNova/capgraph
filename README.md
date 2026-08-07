@@ -111,6 +111,7 @@ UPBGE process control and end-to-end runtime validation are the next implementat
 
 - [Project handoff](docs/skill-graph-project-handoff.md)
 - [Pi compatibility contract](docs/pi-compatibility-contract.md)
+- [UPBGE control transport](docs/upbge-control-transport.md)
 - [Open questions](docs/open-questions.md)
 
 ## Project Scope

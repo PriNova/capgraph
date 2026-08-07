@@ -3,6 +3,7 @@
 ## Companion Documents
 
 - [Pi Compatibility Contract](pi-compatibility-contract.md) — mandatory integration and acceptance requirements for pi-compatible implementations.
+- [UPBGE Control Transport](upbge-control-transport.md) — researched editor-control protocol, required official add-on, security constraints, and pending compatibility test.
 
 ## 1. Project Goal
 

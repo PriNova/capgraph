@@ -5,7 +5,9 @@ import test from "node:test";
 
 import {
   buildGraph,
+  expand,
   GraphValidationError,
+  inspect,
   loadGraph,
   parseCapabilitySkill,
   validateRequiresAcyclic,
@@ -65,6 +67,102 @@ test("loads and normalizes the project graph from capability skills", async () =
     "rigid_body.add",
     "collision.add",
   ]);
+});
+
+test("inspects one capability by ID", () => {
+  const definition = parseSkill({ name: "object-create", id: "object.create" });
+  const graph = buildGraph([definition]);
+
+  assert.deepEqual(inspect(graph, "object.create"), definition);
+});
+
+test("rejects inspection and expansion of an unknown capability", () => {
+  const graph = buildGraph([]);
+  const expectedError = new GraphValidationError('Unknown capability "missing.create".');
+
+  assert.throws(() => inspect(graph, "missing.create"), expectedError);
+  assert.throws(() => expand(graph, "missing.create"), expectedError);
+});
+
+test("expands the project physics workflow in deterministic order", async () => {
+  const capabilitiesPath = fileURLToPath(new URL("../capabilities/", import.meta.url));
+  const graph = await loadGraph(capabilitiesPath);
+
+  assert.deepEqual(
+    expand(graph, "physics_object.create").map((definition) => definition.id),
+    [
+      "physics_object.create",
+      "object.create",
+      "rigid_body.add",
+      "collision.add",
+      "physics_object.verify",
+    ],
+  );
+});
+
+test("expands recursive requirements once and groups terminal relations last", () => {
+  const root = parseSkill({
+    name: "workflow-create",
+    id: "workflow.create",
+    requires: "component.first component.second",
+    verifyWith: "workflow.verify component.verify",
+    recoverWith: "workflow.repair",
+  });
+  const first = parseSkill({
+    name: "component-first",
+    id: "component.first",
+    requires: "component.shared",
+    verifyWith: "component.verify",
+  });
+  const second = parseSkill({
+    name: "component-second",
+    id: "component.second",
+    requires: "component.shared",
+  });
+  const shared = parseSkill({ name: "component-shared", id: "component.shared" });
+  const verify = parseSkill({ name: "workflow-verify", id: "workflow.verify" });
+  const componentVerify = parseSkill({ name: "component-verify", id: "component.verify" });
+  const repair = parseSkill({ name: "workflow-repair", id: "workflow.repair" });
+  const graph = buildGraph([root, first, second, shared, verify, componentVerify, repair]);
+
+  assert.deepEqual(
+    expand(graph, "workflow.create").map((definition) => definition.id),
+    [
+      "workflow.create",
+      "component.first",
+      "component.shared",
+      "component.second",
+      "workflow.verify",
+      "component.verify",
+      "workflow.repair",
+    ],
+  );
+});
+
+test("does not traverse outgoing relations from verification or recovery nodes", () => {
+  const root = parseSkill({
+    name: "workflow-create",
+    id: "workflow.create",
+    verifyWith: "workflow.verify",
+    recoverWith: "workflow.repair",
+  });
+  const verify = parseSkill({
+    name: "workflow-verify",
+    id: "workflow.verify",
+    requires: "terminal.hidden",
+  });
+  const repair = parseSkill({
+    name: "workflow-repair",
+    id: "workflow.repair",
+    verifyWith: "terminal.hidden",
+  });
+  const hidden = parseSkill({ name: "terminal-hidden", id: "terminal.hidden" });
+  const graph = buildGraph([root, verify, repair, hidden]);
+
+  assert.deepEqual(
+    expand(graph, "workflow.create").map((definition) => definition.id),
+    ["workflow.create", "workflow.verify", "workflow.repair"],
+  );
 });
 
 test("parses standard string metadata", () => {

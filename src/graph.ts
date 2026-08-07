@@ -210,6 +210,18 @@ function validateReferences(graph: CapabilityGraph): void {
   }
 }
 
+export function inspect(
+  graph: CapabilityGraph,
+  id: CapabilityId,
+): CapabilityDefinition {
+  const node = graph[id];
+  if (node === undefined) {
+    throw new GraphValidationError(`Unknown capability "${id}".`);
+  }
+
+  return { id, node };
+}
+
 export function validateRequiresAcyclic(
   graph: CapabilityGraph,
   rootId: CapabilityId,
@@ -243,6 +255,45 @@ export function validateRequiresAcyclic(
   }
 
   visit(rootId);
+}
+
+export function expand(
+  graph: CapabilityGraph,
+  rootId: CapabilityId,
+): readonly CapabilityDefinition[] {
+  inspect(graph, rootId);
+  validateRequiresAcyclic(graph, rootId);
+
+  const dependencyIds: CapabilityId[] = [];
+  const selectedIds = new Set<CapabilityId>();
+
+  function includeDependencies(id: CapabilityId): void {
+    if (selectedIds.has(id)) {
+      return;
+    }
+
+    selectedIds.add(id);
+    dependencyIds.push(id);
+    for (const dependencyId of inspect(graph, id).node.requires) {
+      includeDependencies(dependencyId);
+    }
+  }
+
+  includeDependencies(rootId);
+
+  const expandedIds = [...dependencyIds];
+  for (const relation of ["verify_with", "recover_with"] as const) {
+    for (const id of dependencyIds) {
+      for (const relatedId of inspect(graph, id).node[relation]) {
+        if (!selectedIds.has(relatedId)) {
+          selectedIds.add(relatedId);
+          expandedIds.push(relatedId);
+        }
+      }
+    }
+  }
+
+  return expandedIds.map((id) => inspect(graph, id));
 }
 
 export function buildGraph(definitions: readonly CapabilityDefinition[]): CapabilityGraph {

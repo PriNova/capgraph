@@ -10,7 +10,7 @@ Capgraph is a completed V0 → V0.1 → V1 experiment, not a general agent frame
 
 Tino Wening, Independent Researcher — August 2026
 
-[Read the Technical Report (PDF)](paper/Capgraph-Technical-Report-v1.0.pdf)
+[Read the Technical Report (PDF)](https://github.com/PriNova/capgraph/releases/download/v1.0.1/Capgraph-Technical-Report-v1.0.pdf)
 
 The report presents the Capgraph design, related work, and the controlled V0 → V0.1 → V1 evaluation across 36 formal model runs.
 

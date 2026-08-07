@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
+import type { ExpandResult, InspectResult } from "../src/types/graph.ts";
+
 import {
   buildGraph,
   expand,
@@ -15,7 +17,6 @@ import {
 
 interface SkillOptions {
   readonly name: string;
-  readonly id: string;
   readonly requires?: string;
   readonly verifyWith?: string;
   readonly recoverWith?: string;
@@ -23,7 +24,6 @@ interface SkillOptions {
 
 function createSkill(options: SkillOptions): string {
   const metadata = [
-    `  capgraph-id: "${options.id}"`,
     options.requires === undefined ? undefined : `  capgraph-requires: "${options.requires}"`,
     options.verifyWith === undefined
       ? undefined
@@ -37,8 +37,7 @@ function createSkill(options: SkillOptions): string {
     "---",
     `name: ${options.name}`,
     `description: Performs ${options.name}. Use when testing graph metadata.`,
-    "metadata:",
-    ...metadata,
+    ...(metadata.length === 0 ? [] : ["metadata:", ...metadata]),
     "---",
     "",
     `# ${options.name}`,
@@ -46,137 +45,209 @@ function createSkill(options: SkillOptions): string {
   ].join("\n");
 }
 
-function parseSkill(options: SkillOptions) {
-  return parseCapabilitySkill(createSkill(options), options.name, `/skills/${options.name}/SKILL.md`);
+function parseSkill(options: SkillOptions, filePath?: string) {
+  return parseCapabilitySkill(
+    createSkill(options),
+    options.name,
+    filePath ?? `/skills/${options.name}/SKILL.md`,
+  );
 }
 
-test("loads and normalizes the project graph from capability skills", async () => {
+const readableSkillPath = fileURLToPath(
+  new URL("../capabilities/object-create/SKILL.md", import.meta.url),
+);
+
+function parseExpandableSkill(options: SkillOptions) {
+  return parseSkill(options, readableSkillPath);
+}
+
+test("loads the project graph keyed by canonical skill names", async () => {
   const capabilitiesPath = fileURLToPath(new URL("../capabilities/", import.meta.url));
   const graph = await loadGraph(capabilitiesPath);
 
   assert.equal(Object.keys(graph).length, 5);
-  assert.deepEqual(graph["object.create"], {
+  assert.deepEqual(graph["object-create"], {
     skill: "object-create",
     filePath: join(capabilitiesPath, "object-create", "SKILL.md"),
     requires: [],
     verify_with: [],
     recover_with: [],
   });
-  assert.deepEqual(graph["physics_object.create"]?.requires, [
-    "object.create",
-    "rigid_body.add",
-    "collision.add",
+  assert.deepEqual(graph["physics-object-create"]?.requires, [
+    "object-create",
+    "rigid-body-add",
+    "collision-add",
   ]);
 });
 
-test("inspects one capability by ID", () => {
-  const definition = parseSkill({ name: "object-create", id: "object.create" });
-  const graph = buildGraph([definition]);
+test("inspect returns exactly one node without prose or internal paths", () => {
+  const graph = buildGraph([
+    parseSkill({
+      name: "workflow-create",
+      requires: "object-create",
+      verifyWith: "workflow-verify",
+      recoverWith: "workflow-repair",
+    }),
+    parseSkill({ name: "object-create" }),
+    parseSkill({ name: "workflow-verify" }),
+    parseSkill({ name: "workflow-repair" }),
+  ]);
 
-  assert.deepEqual(inspect(graph, "object.create"), definition);
+  const result: InspectResult = inspect(graph, "workflow-create");
+
+  assert.deepEqual(result, {
+    skill: "workflow-create",
+    requires: ["object-create"],
+    verify_with: ["workflow-verify"],
+    recover_with: ["workflow-repair"],
+  });
 });
 
-test("rejects inspection and expansion of an unknown capability", () => {
+test("rejects inspection and expansion of an unknown skill", async () => {
   const graph = buildGraph([]);
-  const expectedError = new GraphValidationError('Unknown capability "missing.create".');
+  const expectedError = new GraphValidationError('Unknown skill "missing-create".');
 
-  assert.throws(() => inspect(graph, "missing.create"), expectedError);
-  assert.throws(() => expand(graph, "missing.create"), expectedError);
+  assert.throws(() => inspect(graph, "missing-create"), expectedError);
+  await assert.rejects(expand(graph, "missing-create"), expectedError);
 });
 
-test("expands the project physics workflow in deterministic order", async () => {
+test("expand returns the physics workflow as structured skills and edges", async () => {
   const capabilitiesPath = fileURLToPath(new URL("../capabilities/", import.meta.url));
   const graph = await loadGraph(capabilitiesPath);
+  const result: ExpandResult = await expand(graph, "physics-object-create");
 
+  assert.equal(result.root, "physics-object-create");
   assert.deepEqual(
-    expand(graph, "physics_object.create").map((definition) => definition.id),
+    result.skills.map(({ skill, depth }) => ({ skill, depth })),
     [
-      "physics_object.create",
-      "object.create",
-      "rigid_body.add",
-      "collision.add",
-      "physics_object.verify",
+      { skill: "object-create", depth: 1 },
+      { skill: "rigid-body-add", depth: 1 },
+      { skill: "collision-add", depth: 1 },
+      { skill: "physics-object-create", depth: 0 },
+      { skill: "physics-object-verify", depth: 1 },
     ],
   );
+  assert.deepEqual(result.edges, [
+    { from: "physics-object-create", to: "object-create", relation: "requires" },
+    { from: "physics-object-create", to: "rigid-body-add", relation: "requires" },
+    { from: "physics-object-create", to: "collision-add", relation: "requires" },
+    {
+      from: "physics-object-create",
+      to: "physics-object-verify",
+      relation: "verify_with",
+    },
+    { from: "rigid-body-add", to: "object-create", relation: "requires" },
+    { from: "collision-add", to: "object-create", relation: "requires" },
+  ]);
+  assert.deepEqual(
+    result.skills.map(({ content }) => content.split("\n", 1)[0]),
+    [
+      "# Create Object",
+      "# Add Rigid Body",
+      "# Add Collision",
+      "# Create Physics Object",
+      "# Verify Physics Object",
+    ],
+  );
+  for (const skill of result.skills) {
+    assert.doesNotMatch(skill.content, /^---/);
+  }
 });
 
-test("expands recursive requirements once and groups terminal relations last", () => {
-  const root = parseSkill({
+test("expand orders recursive dependencies once before the root and terminal skills", async () => {
+  const root = parseExpandableSkill({
     name: "workflow-create",
-    id: "workflow.create",
-    requires: "component.first component.second",
-    verifyWith: "workflow.verify component.verify",
-    recoverWith: "workflow.repair",
+    requires: "component-first component-second",
+    verifyWith: "workflow-verify component-verify",
+    recoverWith: "workflow-repair",
   });
-  const first = parseSkill({
+  const first = parseExpandableSkill({
     name: "component-first",
-    id: "component.first",
-    requires: "component.shared",
-    verifyWith: "component.verify",
+    requires: "component-shared",
+    verifyWith: "component-verify",
   });
-  const second = parseSkill({
+  const second = parseExpandableSkill({
     name: "component-second",
-    id: "component.second",
-    requires: "component.shared",
+    requires: "component-shared",
   });
-  const shared = parseSkill({ name: "component-shared", id: "component.shared" });
-  const verify = parseSkill({ name: "workflow-verify", id: "workflow.verify" });
-  const componentVerify = parseSkill({ name: "component-verify", id: "component.verify" });
-  const repair = parseSkill({ name: "workflow-repair", id: "workflow.repair" });
+  const shared = parseExpandableSkill({ name: "component-shared" });
+  const verify = parseExpandableSkill({ name: "workflow-verify" });
+  const componentVerify = parseExpandableSkill({ name: "component-verify" });
+  const repair = parseExpandableSkill({ name: "workflow-repair" });
   const graph = buildGraph([root, first, second, shared, verify, componentVerify, repair]);
 
+  const result = await expand(graph, "workflow-create");
+
   assert.deepEqual(
-    expand(graph, "workflow.create").map((definition) => definition.id),
+    result.skills.map(({ skill, depth }) => ({ skill, depth })),
     [
-      "workflow.create",
-      "component.first",
-      "component.shared",
-      "component.second",
-      "workflow.verify",
-      "component.verify",
-      "workflow.repair",
+      { skill: "component-shared", depth: 2 },
+      { skill: "component-first", depth: 1 },
+      { skill: "component-second", depth: 1 },
+      { skill: "workflow-create", depth: 0 },
+      { skill: "workflow-verify", depth: 1 },
+      { skill: "component-verify", depth: 1 },
+      { skill: "workflow-repair", depth: 1 },
+    ],
+  );
+  assert.equal(result.skills.filter(({ skill }) => skill === "component-shared").length, 1);
+  assert.deepEqual(
+    result.edges.filter(({ to }) => to === "component-shared"),
+    [
+      { from: "component-first", to: "component-shared", relation: "requires" },
+      { from: "component-second", to: "component-shared", relation: "requires" },
     ],
   );
 });
 
-test("does not traverse outgoing relations from verification or recovery nodes", () => {
-  const root = parseSkill({
+test("expand does not traverse outgoing relations from terminal skills", async () => {
+  const root = parseExpandableSkill({
     name: "workflow-create",
-    id: "workflow.create",
-    verifyWith: "workflow.verify",
-    recoverWith: "workflow.repair",
+    verifyWith: "workflow-verify",
+    recoverWith: "workflow-repair",
   });
-  const verify = parseSkill({
+  const verify = parseExpandableSkill({
     name: "workflow-verify",
-    id: "workflow.verify",
-    requires: "terminal.hidden",
+    requires: "terminal-hidden",
   });
-  const repair = parseSkill({
+  const repair = parseExpandableSkill({
     name: "workflow-repair",
-    id: "workflow.repair",
-    verifyWith: "terminal.hidden",
+    verifyWith: "terminal-hidden",
   });
-  const hidden = parseSkill({ name: "terminal-hidden", id: "terminal.hidden" });
+  const hidden = parseExpandableSkill({ name: "terminal-hidden" });
   const graph = buildGraph([root, verify, repair, hidden]);
 
+  const result = await expand(graph, "workflow-create");
+
   assert.deepEqual(
-    expand(graph, "workflow.create").map((definition) => definition.id),
-    ["workflow.create", "workflow.verify", "workflow.repair"],
+    result.skills.map(({ skill }) => skill),
+    ["workflow-create", "workflow-verify", "workflow-repair"],
   );
+  assert.deepEqual(result.edges, [
+    { from: "workflow-create", to: "workflow-verify", relation: "verify_with" },
+    { from: "workflow-create", to: "workflow-repair", relation: "recover_with" },
+  ]);
 });
 
-test("parses standard string metadata", () => {
-  const definition = parseSkill({
+test("parses standard string relation metadata", () => {
+  const node = parseSkill({
     name: "workflow-create",
-    id: "workflow.create",
-    requires: "object.create collision.add",
-    verifyWith: "workflow.verify",
+    requires: "object-create collision-add",
+    verifyWith: "workflow-verify",
   });
 
-  assert.equal(definition.id, "workflow.create");
-  assert.deepEqual(definition.node.requires, ["object.create", "collision.add"]);
-  assert.deepEqual(definition.node.verify_with, ["workflow.verify"]);
-  assert.deepEqual(definition.node.recover_with, []);
+  assert.equal(node.skill, "workflow-create");
+  assert.deepEqual(node.requires, ["object-create", "collision-add"]);
+  assert.deepEqual(node.verify_with, ["workflow-verify"]);
+  assert.deepEqual(node.recover_with, []);
+});
+
+test("allows skills without metadata", () => {
+  const node = parseSkill({ name: "object-create" });
+
+  assert.deepEqual(node.requires, []);
+  assert.deepEqual(node.verify_with, []);
+  assert.deepEqual(node.recover_with, []);
 });
 
 test("rejects non-string metadata values", () => {
@@ -184,9 +255,8 @@ test("rejects non-string metadata values", () => {
 name: workflow-create
 description: Creates a workflow. Use when testing invalid metadata.
 metadata:
-  capgraph-id: "workflow.create"
   capgraph-requires:
-    - "object.create"
+    - "object-create"
 ---
 `;
 
@@ -198,14 +268,40 @@ metadata:
   );
 });
 
+test("rejects the removed capgraph-id metadata", () => {
+  const contents = `---
+name: workflow-create
+description: Creates a workflow. Use when testing obsolete metadata.
+metadata:
+  capgraph-id: "workflow.create"
+---
+`;
+
+  assert.throws(
+    () => parseCapabilitySkill(contents, "workflow-create", "/skills/workflow-create/SKILL.md"),
+    new GraphValidationError(
+      'Skill "/skills/workflow-create/SKILL.md" contains unknown graph metadata "capgraph-id".',
+    ),
+  );
+});
+
+test("rejects invalid relation skill names", () => {
+  const contents = createSkill({ name: "workflow-create", requires: "object.create" });
+
+  assert.throws(
+    () => parseCapabilitySkill(contents, "workflow-create", "/skills/workflow-create/SKILL.md"),
+    new GraphValidationError(
+      'Skill "/skills/workflow-create/SKILL.md" metadata "capgraph-requires" contains invalid skill name "object.create".',
+    ),
+  );
+});
+
 test("rejects custom top-level graph fields", () => {
   const contents = `---
 name: workflow-create
 description: Creates a workflow. Use when testing invalid frontmatter.
-metadata:
-  capgraph-id: "workflow.create"
 graph:
-  requires: object.create
+  requires: object-create
 ---
 `;
 
@@ -217,87 +313,59 @@ graph:
   );
 });
 
-test("rejects references to unknown capabilities", () => {
-  const definition = parseSkill({
-    name: "workflow-create",
-    id: "workflow.create",
-    requires: "missing.create",
-  });
+test("rejects references to unknown skills", () => {
+  const node = parseSkill({ name: "workflow-create", requires: "missing-create" });
 
   assert.throws(
-    () => buildGraph([definition]),
+    () => buildGraph([node]),
     new GraphValidationError(
-      'Node "workflow.create" field "requires" references unknown node "missing.create".',
+      'Skill "workflow-create" field "requires" references unknown skill "missing-create".',
     ),
   );
 });
 
-test("rejects duplicate capability IDs", () => {
-  const first = parseSkill({ name: "workflow-create", id: "workflow.create" });
-  const second = parseSkill({ name: "workflow-copy", id: "workflow.create" });
+test("rejects duplicate skill names", () => {
+  const first = parseSkill({ name: "workflow-create" });
+  const second = parseSkill({ name: "workflow-create" }, "/other/workflow-create/SKILL.md");
 
   assert.throws(
     () => buildGraph([first, second]),
-    new GraphValidationError('Duplicate capability ID "workflow.create".'),
+    new GraphValidationError('Duplicate skill name "workflow-create".'),
   );
 });
 
 test("rejects reachable requires cycles", () => {
-  const create = parseSkill({
-    name: "workflow-create",
-    id: "workflow.create",
-    requires: "workflow.prepare",
-  });
-  const prepare = parseSkill({
-    name: "workflow-prepare",
-    id: "workflow.prepare",
-    requires: "workflow.create",
-  });
+  const create = parseSkill({ name: "workflow-create", requires: "workflow-prepare" });
+  const prepare = parseSkill({ name: "workflow-prepare", requires: "workflow-create" });
   const graph = buildGraph([create, prepare]);
 
   assert.throws(
-    () => validateRequiresAcyclic(graph, "workflow.create"),
+    () => validateRequiresAcyclic(graph, "workflow-create"),
     new GraphValidationError(
-      "Requires cycle detected: workflow.create -> workflow.prepare -> workflow.create.",
+      "Requires cycle detected: workflow-create -> workflow-prepare -> workflow-create.",
     ),
   );
 });
 
 test("allows cycles through verification and recovery relations", () => {
-  const create = parseSkill({
-    name: "workflow-create",
-    id: "workflow.create",
-    verifyWith: "workflow.verify",
-  });
-  const verify = parseSkill({
-    name: "workflow-verify",
-    id: "workflow.verify",
-    recoverWith: "workflow.create",
-  });
+  const create = parseSkill({ name: "workflow-create", verifyWith: "workflow-verify" });
+  const verify = parseSkill({ name: "workflow-verify", recoverWith: "workflow-create" });
   const graph = buildGraph([create, verify]);
 
-  assert.doesNotThrow(() => validateRequiresAcyclic(graph, "workflow.create"));
+  assert.doesNotThrow(() => validateRequiresAcyclic(graph, "workflow-create"));
 });
 
 test("ignores requires cycles outside the requested root closure", () => {
-  const root = parseSkill({ name: "workflow-create", id: "workflow.create" });
-  const first = parseSkill({
-    name: "unrelated-first",
-    id: "unrelated.first",
-    requires: "unrelated.second",
-  });
-  const second = parseSkill({
-    name: "unrelated-second",
-    id: "unrelated.second",
-    requires: "unrelated.first",
-  });
+  const root = parseSkill({ name: "workflow-create" });
+  const first = parseSkill({ name: "unrelated-first", requires: "unrelated-second" });
+  const second = parseSkill({ name: "unrelated-second", requires: "unrelated-first" });
   const graph = buildGraph([root, first, second]);
 
-  assert.doesNotThrow(() => validateRequiresAcyclic(graph, "workflow.create"));
+  assert.doesNotThrow(() => validateRequiresAcyclic(graph, "workflow-create"));
   assert.throws(
-    () => validateRequiresAcyclic(graph, "unrelated.first"),
+    () => validateRequiresAcyclic(graph, "unrelated-first"),
     new GraphValidationError(
-      "Requires cycle detected: unrelated.first -> unrelated.second -> unrelated.first.",
+      "Requires cycle detected: unrelated-first -> unrelated-second -> unrelated-first.",
     ),
   );
 });

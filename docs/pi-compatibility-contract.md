@@ -59,17 +59,16 @@ Requirements:
 - references to scripts, assets, and documents use paths relative to the skill directory
 - instructions and executable files are written in English
 
-Capability graph IDs may use domain-oriented dotted names such as `object.create`. Each skill declares its capability ID and outgoing relations through namespaced entries in the standard `metadata` field:
+The Agent Skills `name` is the canonical graph node ID. A separate `capgraph-id` is not supported. Each skill declares outgoing relations through namespaced entries in the standard `metadata` field:
 
 ```yaml
 metadata:
-  capgraph-id: "object.create"
-  capgraph-requires: "scene.create"
-  capgraph-verify-with: "object.verify"
-  capgraph-recover-with: "object.repair"
+  capgraph-requires: "scene-create"
+  capgraph-verify-with: "object-verify"
+  capgraph-recover-with: "object-repair"
 ```
 
-Agent Skills `metadata` is a map from string keys to string values. Custom top-level fields, nested objects, and YAML arrays must not be used. Relation values are whitespace-separated capability IDs. The skill `name` must match its parent directory; the graph loader derives the `SKILL.md` path directly and does not require a central capability-to-skill mapping.
+Agent Skills `metadata` is a map from string keys to string values. Custom top-level fields, nested objects, and YAML arrays must not be used. Relation values are whitespace-separated Agent Skills names. Skills without outgoing relations may omit `metadata`. The skill `name` must match its parent directory; the graph loader derives the `SKILL.md` path directly and does not require an identifier mapping.
 
 ## 5. Discovery and Context Contract
 
@@ -90,10 +89,10 @@ The pi package manifest must not register this complete directory under `pi.skil
 
 The extension must expose only:
 
-1. the requested root capability,
+1. the requested root skill,
 2. its required local dependency subgraph,
-3. associated verification capabilities,
-4. associated recovery capabilities.
+3. associated verification skills,
+4. associated recovery skills.
 
 The complete in-memory graph index, unrelated capability metadata, unrelated skill frontmatter, and unrelated full `SKILL.md` contents must remain outside model context.
 
@@ -104,13 +103,21 @@ The V0 extension must register a compact graph tool through `pi.registerTool()`.
 Minimum operations:
 
 ```text
-inspect(id)
-expand(id)
+inspect(skill)
+expand(skill)
 ```
+
+`inspect(skill)` must return exactly one metadata-only node with `skill`, `requires`, `verify_with`, and `recover_with`. It must not return skill prose or internal file paths.
+
+`expand(skill)` must return a structured object with:
+
+- `root`: the canonical root skill name
+- `skills`: selected skills with `skill`, shortest `depth` from the root, and `content` without YAML frontmatter
+- `edges`: explicit `from`, `to`, and `relation` values for selected graph relationships
 
 The tool must:
 
-- accept an explicit capability ID
+- accept an explicit canonical skill name
 - scan capability frontmatter and build the graph index outside model context
 - return deterministic results
 - read only skill files selected by expansion
@@ -124,9 +131,9 @@ The first implementation must work in pi interactive, print, JSON, and RPC modes
 
 ## 7. Graph Expansion Contract
 
-For V0, expansion starts from a known root capability.
+For V0, expansion starts from a known root skill.
 
-`expand(id)` must:
+`expand(skill)` must:
 
 1. include the root node,
 2. recursively follow `requires` from the root to build the required dependency closure,
@@ -134,11 +141,14 @@ For V0, expansion starts from a known root capability.
 4. include direct `recover_with` references from the root and every node in that dependency closure,
 5. not traverse outgoing relations from the added verification and recovery nodes,
 6. detect `requires` cycles reachable from the requested root,
-7. produce a stable order for repeatable tests.
+7. include each selected skill exactly once,
+8. return explicit edges so shared and transitive relationships retain their source and target,
+9. assign each skill its shortest selected-edge depth from the root,
+10. order required dependencies before the root, then append verification skills and recovery skills deterministically.
 
 Only `requires` is recursive in V0. `verify_with` and `recover_with` are terminal associations for expansion. Cycles that use only verification or recovery edges are therefore not dependency cycles. Unrelated cycles outside the requested root's `requires` closure must not make that expansion fail. Missing references selected by steps 2–4 remain errors.
 
-V0 does not infer the root capability from natural-language intent.
+V0 does not infer the root skill from natural-language intent.
 
 ## 8. Security and Trust Contract
 
@@ -182,8 +192,8 @@ V0 is pi-compatible when all of these checks pass:
 
 1. Pi loads the local package without extension diagnostics.
 2. Every capability `SKILL.md` passes the official Agent Skills validation, including string-only `metadata` values and matching skill/directory names.
-3. `inspect` returns one requested graph node.
-4. `expand` returns only the expected local capability set.
+3. `inspect` returns one requested metadata-only graph node without prose or internal paths.
+4. `expand` returns the expected structured `root`, `skills`, and `edges` output and only the expected local skill set.
 5. Unrelated skill prose does not appear in the model context or tool result.
 6. Missing nodes, invalid paths, missing files, and cycles produce clear errors.
 7. The extension works without an interactive UI.

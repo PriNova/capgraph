@@ -2,8 +2,7 @@
 name: rigid-body-add
 description: Adds rigid-body physics to an UPBGE editor object. Use when an object must participate in physics simulation.
 metadata:
-  capgraph-id: "rigid_body.add"
-  capgraph-requires: "object.create"
+  capgraph-requires: "object-create"
 ---
 
 # Add Rigid Body

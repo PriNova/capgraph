@@ -1,8 +1,6 @@
 ---
 name: physics-object-verify
 description: Verifies a physics-enabled UPBGE object. Use after object, rigid-body, and collision configuration.
-metadata:
-  capgraph-id: "physics_object.verify"
 ---
 
 # Verify Physics Object

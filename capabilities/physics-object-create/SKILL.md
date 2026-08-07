@@ -2,9 +2,8 @@
 name: physics-object-create
 description: Creates a physics-enabled object in the UPBGE editor. Use when an object needs rigid-body simulation and collision.
 metadata:
-  capgraph-id: "physics_object.create"
-  capgraph-requires: "object.create rigid_body.add collision.add"
-  capgraph-verify-with: "physics_object.verify"
+  capgraph-requires: "object-create rigid-body-add collision-add"
+  capgraph-verify-with: "physics-object-verify"
 ---
 
 # Create Physics Object

@@ -139,7 +139,7 @@ Test:
 
 This deliberately avoids solving the Intent → Capability problem yet.
 
-For benchmark tasks, the root capability may be explicitly supplied.
+For benchmark tasks, the root skill may be explicitly supplied. The Agent Skills `name` is the canonical graph node ID.
 
 Example:
 
@@ -147,8 +147,8 @@ Example:
 Task:
 Create a playable character.
 
-Root capability:
-character.create
+Root skill:
+character-create
 ```
 
 This isolates the graph-composition question.
@@ -173,15 +173,15 @@ Pi discovers the skills and includes only their frontmatter names and descriptio
 
 ### Experiment: Skill Graph
 
-Same skill prose and the same on-demand principle, but graph metadata additionally provides relationships. Given a known root capability, the extension expands the local subgraph and returns only the selected full skill contents.
+Same skill prose and the same on-demand principle, but graph metadata additionally provides relationships. Given a known root skill, the extension expands the local subgraph and returns only the selected full skill contents.
 
 ```text
-character.create
- ├─ requires → mesh.create
- ├─ requires → collision.add
- ├─ requires → controls.character
- ├─ verify_with → character.verify
- └─ recover_with → character.repair
+character-create
+ ├─ requires → mesh-create
+ ├─ requires → collision-add
+ ├─ requires → controls-character
+ ├─ verify_with → character-verify
+ └─ recover_with → character-repair
 ```
 
 ---
@@ -223,7 +223,7 @@ Do not introduce a database until distributed skill metadata becomes a real limi
 
 Store each node's outgoing relationships in its own `SKILL.md`. Do not maintain a separate `graph.json`.
 
-The Agent Skills specification permits only defined top-level frontmatter fields. Custom data belongs under `metadata`, which must be a map from string keys to string values. Therefore, relation lists use whitespace-separated capability IDs rather than YAML arrays or nested objects.
+The Agent Skills specification permits only defined top-level frontmatter fields. Custom data belongs under `metadata`, which must be a map from string keys to string values. Therefore, relation lists use whitespace-separated skill names rather than YAML arrays or nested objects.
 
 Example:
 
@@ -232,22 +232,22 @@ Example:
 name: character-create
 description: Creates a playable character. Use when a scene needs a controllable character.
 metadata:
-  capgraph-id: "character.create"
-  capgraph-requires: "mesh.create collision.add controls.character"
-  capgraph-verify-with: "character.verify"
-  capgraph-recover-with: "character.repair"
+  capgraph-requires: "mesh-create collision-add controls-character"
+  capgraph-verify-with: "character-verify"
+  capgraph-recover-with: "character-repair"
 ---
 ```
 
 Requirements:
 
-- `name` must be a valid Agent Skills name and match its parent directory.
-- `capgraph-id` is required and may use a dotted domain-oriented capability ID.
+- `name` is the canonical graph node ID, must be a valid Agent Skills name, and must match its parent directory.
+- A separate `capgraph-id` is not supported.
 - `capgraph-requires`, `capgraph-verify-with`, and `capgraph-recover-with` are optional strings.
-- Each relation string contains whitespace-separated capability IDs.
-- All `metadata` keys and values remain strings.
+- Each relation string contains whitespace-separated Agent Skills names.
+- Skills without outgoing graph relations may omit `metadata`.
+- All declared `metadata` keys and values remain strings.
 - The extension scans capability frontmatter and builds the in-memory graph outside model context.
-- The `SKILL.md` path is derived from the discovered file; no separate skill-name mapping is required.
+- The `SKILL.md` path is derived from the discovered file; no identifier mapping is required.
 
 Keep the schema intentionally small.
 
@@ -260,21 +260,61 @@ Do not add additional relation keys before a concrete use case requires them.
 Expose only these operations through the pi `skill_graph` custom tool:
 
 ```text
-inspect(id)
-expand(id)
+inspect(skill)
+expand(skill)
 ```
 
-Core graph functions:
+`inspect(skill)` returns exactly one node without skill prose or internal file paths:
 
-```text
-get_node(id)
-get_dependencies(id)
-get_verifiers(id)
-get_recovery(id)
-expand_subgraph(id)
+```json
+{
+  "skill": "physics-object-create",
+  "requires": ["object-create", "rigid-body-add", "collision-add"],
+  "verify_with": ["physics-object-verify"],
+  "recover_with": []
+}
 ```
 
-For V0, `expand(id)` always includes referenced verification and recovery nodes. Defer `list()` and `search()` until a benchmark or workflow requires them. The important part is graph traversal, not search sophistication.
+`expand(skill)` resolves the transitive dependency closure of one root skill and returns the minimal skill set needed to execute and verify it. Recovery skills are included as terminal nodes but are not traversed. The result separates selected skills from explicit graph edges:
+
+```json
+{
+  "root": "physics-object-create",
+  "skills": [
+    {
+      "skill": "object-create",
+      "depth": 1,
+      "content": "# Create Object\n\n..."
+    },
+    {
+      "skill": "physics-object-create",
+      "depth": 0,
+      "content": "# Create Physics Object\n\n..."
+    },
+    {
+      "skill": "physics-object-verify",
+      "depth": 1,
+      "content": "# Verify Physics Object\n\n..."
+    }
+  ],
+  "edges": [
+    {
+      "from": "physics-object-create",
+      "to": "object-create",
+      "relation": "requires"
+    },
+    {
+      "from": "physics-object-create",
+      "to": "physics-object-verify",
+      "relation": "verify_with"
+    }
+  ]
+}
+```
+
+Dependencies use deterministic dependency-first order, followed by the root, verification skills, and recovery skills. `depth` is the shortest selected-edge distance from the root. Each selected skill appears once even when multiple edges reference it. Skill `content` excludes YAML frontmatter. Explicit edges preserve relationship source and target for shared or transitive dependencies. The canonical TypeScript output contracts are `InspectResult` and `ExpandResult` in `src/types/graph.ts`.
+
+Defer `list()` and `search()` until a benchmark or workflow requires them. The important part is graph traversal, not search sophistication.
 
 ---
 
@@ -285,28 +325,28 @@ Target roughly 10–15 skills.
 Suggested starting nodes:
 
 ```text
-scene.create
-scene.save
+scene-create
+scene-save
 
-object.create
-object.transform
+object-create
+object-transform
 
-mesh.create
+mesh-create
 
-material.create
-material.assign
+material-create
+material-assign
 
-light.create
-camera.create
+light-create
+camera-create
 
-rigid_body.add
-collision.add
+rigid-body-add
+collision-add
 
-input.keyboard
+input-keyboard
 
-character.create
-character.verify
-character.repair
+character-create
+character-verify
+character-repair
 ```
 
 Potential small workflows:
@@ -719,16 +759,17 @@ Completed:
 2. Defined the standard-compliant `metadata.capgraph-*` convention.
 3. Implemented TypeScript loading and validation for capability `SKILL.md` frontmatter.
 4. Added five initial UPBGE capability skills under `capabilities/`.
-5. Added unit tests for loading, metadata validation, references, and duplicate IDs.
+5. Added unit tests for loading, metadata validation, references, and duplicate skill names.
 6. Implemented reachable `requires` cycle validation and tests that permit verification and recovery cycles and ignore unrelated dependency cycles.
-7. Implemented `inspect(id)` with clear unknown-capability errors.
-8. Implemented `expand(id)` with deterministic root-first dependency traversal, duplicate removal, terminal verification and recovery inclusion, and reachable `requires` cycle validation.
-9. Added unit tests for inspection, unknown IDs, recursive expansion order, shared dependencies, terminal relation ordering, and non-traversal of outgoing verifier and recovery relations.
+7. Adopted the Agent Skills `name` as the canonical graph node ID and removed the separate `capgraph-id` namespace.
+8. Implemented `inspect(skill)` with clear unknown-skill errors and metadata-only output.
+9. Implemented `expand(skill)` with deterministic dependency-first ordering, shortest-depth metadata, explicit edges, deduplication, selected skill bodies without frontmatter, terminal verification and recovery inclusion, and reachable `requires` cycle validation.
+10. Added unit tests that fix the exact inspection and expansion output contracts, including shared dependencies and non-traversal of outgoing terminal relations.
 
 Next tasks:
 
 1. Make the repository a loadable pi package by adding the package manifest, required peer dependencies, and extension entry point.
-2. Register `inspect(id)` and `expand(id)` through a pi `skill_graph` custom tool.
+2. Register `inspect(skill)` and `expand(skill)` through a pi `skill_graph` custom tool.
 3. Make tool execution abort-aware, enforce output limits, and return graph failures as pi tool errors.
 4. Validate the extension and skill files in pi without connecting UPBGE.
 5. Create the `create_physics_object` test workflow.
@@ -746,17 +787,17 @@ The first complete end-to-end experiment should be:
 Task:
 Create a physics-enabled cube in UPBGE.
 
-Known root capability:
-physics_object.create
+Known root skill:
+physics-object-create
 
 Graph expansion:
-physics_object.create
- ├─ requires → object.create
- ├─ requires → rigid_body.add
- ├─ requires → collision.add
- └─ verify_with → physics_object.verify
+physics-object-create
+ ├─ requires → object-create
+ ├─ requires → rigid-body-add
+ ├─ requires → collision-add
+ └─ verify_with → physics-object-verify
 
-Each capability declares these outgoing relationships through standard-compliant string values under `metadata` in its `SKILL.md`. Expansion recursively follows `requires` from the root, then includes direct verification and recovery references from that dependency closure. It does not traverse outgoing relations from those added verification and recovery nodes. The pi extension builds the graph index outside model context, then reads only the selected full `SKILL.md` files and returns their content through the `skill_graph` tool result.
+Each skill uses its Agent Skills `name` as its graph node ID and declares outgoing relationships through standard-compliant string values under `metadata` in its `SKILL.md`. Expansion recursively follows `requires` from the root, then includes direct verification and recovery references from that dependency closure. It does not traverse outgoing relations from those added verification and recovery nodes. The pi extension builds the graph index outside model context, then reads only the selected full `SKILL.md` files and returns structured `skills` and `edges` through the `skill_graph` tool result.
 
 Agent executes task.
 

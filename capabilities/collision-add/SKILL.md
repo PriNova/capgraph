@@ -2,8 +2,7 @@
 name: collision-add
 description: Adds collision settings to an UPBGE editor object. Use when an object must collide during simulation.
 metadata:
-  capgraph-id: "collision.add"
-  capgraph-requires: "object.create"
+  capgraph-requires: "object-create"
 ---
 
 # Add Collision

@@ -1,8 +1,6 @@
 ---
 name: object-create
 description: Creates an object in the UPBGE editor. Use when a workflow requires a new scene object.
-metadata:
-  capgraph-id: "object.create"
 ---
 
 # Create Object

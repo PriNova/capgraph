@@ -5,14 +5,39 @@ export const GRAPH_RELATIONS = [
 ] as const;
 
 export type GraphRelation = (typeof GRAPH_RELATIONS)[number];
-export type CapabilityId = string;
+export type SkillName = string;
 
-export interface CapabilityNode {
-  readonly skill: string;
+export interface SkillNode {
+  readonly skill: SkillName;
   readonly filePath: string;
-  readonly requires: readonly CapabilityId[];
-  readonly verify_with: readonly CapabilityId[];
-  readonly recover_with: readonly CapabilityId[];
+  readonly requires: readonly SkillName[];
+  readonly verify_with: readonly SkillName[];
+  readonly recover_with: readonly SkillName[];
 }
 
-export type CapabilityGraph = Readonly<Record<CapabilityId, CapabilityNode>>;
+export type SkillGraph = Readonly<Record<SkillName, SkillNode>>;
+
+export interface InspectResult {
+  readonly skill: SkillName;
+  readonly requires: readonly SkillName[];
+  readonly verify_with: readonly SkillName[];
+  readonly recover_with: readonly SkillName[];
+}
+
+export interface ExpandedSkill {
+  readonly skill: SkillName;
+  readonly depth: number;
+  readonly content: string;
+}
+
+export interface ExpansionEdge {
+  readonly from: SkillName;
+  readonly to: SkillName;
+  readonly relation: GraphRelation;
+}
+
+export interface ExpandResult {
+  readonly root: SkillName;
+  readonly skills: readonly ExpandedSkill[];
+  readonly edges: readonly ExpansionEdge[];
+}

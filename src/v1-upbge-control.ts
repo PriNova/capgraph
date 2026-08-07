@@ -39,10 +39,14 @@ function quoted(value: string): string {
 }
 
 export function buildV1UpbgeCode(input: V1UpbgeControlInput): string {
-  if (input.operation === "status") {
-    return 'import bpy\nresult = {"version": bpy.app.version_string, "scene": bpy.context.scene.name}';
-  }
   const name = requireObjectName(input);
+  if (input.operation === "status") {
+    return [
+      "import bpy",
+      `obj = bpy.data.objects.get(${quoted(name)})`,
+      'result = {"version": bpy.app.version_string, "scene": bpy.context.scene.name, "object_name": ' + quoted(name) + ', "object_exists": obj is not None}',
+    ].join("\n");
+  }
   const prefix = ["import bpy", "import runpy", `root = ${quoted(ROOT)}`];
   if (input.operation === "create_mesh") {
     return [...prefix, 'fn = runpy.run_path(root + "mesh-object-create/scripts/create_vehicle_mesh.py")["create_vehicle_mesh"]', `obj = fn(${quoted(name)})`, 'result = {"object": obj.name, "type": obj.type}'].join("\n");

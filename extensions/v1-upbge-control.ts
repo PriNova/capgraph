@@ -14,13 +14,13 @@ export const V1_UPBGE_PROMPT_GUIDELINES = [
 
 export const V1_UPBGE_PARAMETER_DESCRIPTIONS = {
   operation: "Primitive editor operation.",
-  objectName: "Exact subject object name. Required except for status. For create_camera, supply the existing target object; the operation creates its configured camera.",
+  objectName: "Required exact subject object name. Status inspects this name without requiring the object to exist. For create_camera, supply the existing target object; the operation creates its configured camera.",
   profile: "State profile to inspect. Required only for verify_state.",
 } as const;
 
 const parameters = Type.Object({
   operation: StringEnum(V1_UPBGE_OPERATIONS, { description: V1_UPBGE_PARAMETER_DESCRIPTIONS.operation }),
-  object_name: Type.Optional(Type.String({ description: V1_UPBGE_PARAMETER_DESCRIPTIONS.objectName, pattern: "^[A-Za-z][A-Za-z0-9_-]{0,63}$" })),
+  object_name: Type.String({ description: V1_UPBGE_PARAMETER_DESCRIPTIONS.objectName, pattern: "^[A-Za-z][A-Za-z0-9_-]{0,63}$" }),
   profile: Type.Optional(StringEnum(V1_VERIFICATION_PROFILES, { description: V1_UPBGE_PARAMETER_DESCRIPTIONS.profile })),
 }, { additionalProperties: false });
 
@@ -35,7 +35,7 @@ export default function registerV1UpbgeControl(pi: ExtensionAPI): void {
     async execute(_id, params, signal) {
       const input: V1UpbgeControlInput = {
         operation: params.operation,
-        ...(params.object_name === undefined ? {} : { objectName: params.object_name }),
+        objectName: params.object_name,
         ...(params.profile === undefined ? {} : { profile: params.profile }),
       };
       const result = await executeV1UpbgeOperation(input, signal === undefined ? {} : { signal });

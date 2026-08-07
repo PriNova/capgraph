@@ -107,6 +107,20 @@ test("classifies recovery prose by task variant", () => {
   assert.deepEqual(v1IrrelevantLoadedSkills("recovery", loaded), ["light-create"]);
 });
 
+test("fixed wrappers require an exact subject for status and verification", () => {
+  assert.throws(
+    () => buildV1UpbgeCode({ operation: "status" }),
+    /status requires a valid object_name/,
+  );
+  assert.throws(
+    () => buildV1UpbgeCode({ operation: "verify_state", profile: "vehicle" }),
+    /verify_state requires a valid object_name/,
+  );
+  const status = buildV1UpbgeCode({ operation: "status", objectName: "CapgraphVehicle" });
+  assert.match(status, /"object_exists": obj is not None/);
+  assert.match(status, /bpy\.data\.objects\.get\("CapgraphVehicle"\)/);
+});
+
 test("fixed wrappers expose no model-authored code and verification does not inject faults", () => {
   const verify = buildV1UpbgeCode({ operation: "verify_state", objectName: "CapgraphVehicle", profile: "vehicle" });
   assert.match(verify, /verify_vehicle\.py/);

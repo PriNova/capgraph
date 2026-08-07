@@ -721,16 +721,18 @@ Completed:
 4. Added five initial UPBGE capability skills under `capabilities/`.
 5. Added unit tests for loading, metadata validation, references, and duplicate IDs.
 6. Implemented reachable `requires` cycle validation and tests that permit verification and recovery cycles and ignore unrelated dependency cycles.
+7. Implemented `inspect(id)` with clear unknown-capability errors.
+8. Implemented `expand(id)` with deterministic root-first dependency traversal, duplicate removal, terminal verification and recovery inclusion, and reachable `requires` cycle validation.
+9. Added unit tests for inspection, unknown IDs, recursive expansion order, shared dependencies, terminal relation ordering, and non-traversal of outgoing verifier and recovery relations.
 
 Next tasks:
 
 1. Make the repository a loadable pi package by adding the package manifest, required peer dependencies, and extension entry point.
-2. Implement `inspect(id)`.
-3. Implement `expand(id)` with the V0 traversal rules and deterministic ordering, using the reachable `requires` cycle validation.
-4. Register both operations through a pi `skill_graph` custom tool.
-5. Validate the extension and skill files in pi without connecting UPBGE.
-6. Create the `create_physics_object` test workflow.
-7. Only after that, connect UPBGE execution and verification.
+2. Register `inspect(id)` and `expand(id)` through a pi `skill_graph` custom tool.
+3. Make tool execution abort-aware, enforce output limits, and return graph failures as pi tool errors.
+4. Validate the extension and skill files in pi without connecting UPBGE.
+5. Create the `create_physics_object` test workflow.
+6. Only after that, connect UPBGE execution and verification.
 
 Do not begin with a separate CLI, intent search, self-learning, or a database.
 

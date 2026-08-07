@@ -771,10 +771,13 @@ Completed:
 13. Made graph reads abort-aware, rejected escaping capability paths, enforced pi output limits, and returned execution failures as pi tool errors.
 14. Validated local package loading and both tool operations in pi without connecting UPBGE.
 15. Added the `create_physics_object` workflow contract and an automated pi SDK integration test that runs without a model, network access, package installation, or persistent sessions.
+16. Validated the official add-on's direct TCP bridge against UPBGE 5.3.0 Alpha, including all four capability scripts and a successful verifier result.
+17. Added the `upbge_control` pi tool with fixed operation wrappers, validated object names, abort and timeout handling, protocol limits, response validation, and mock TCP tests.
+18. Completed the live tool-level workflow through the registered pi tool: status, cube creation, rigid-body configuration, collision configuration, and successful verification.
 
 Next tasks:
 
-1. Connect UPBGE execution and verification.
+1. Define and record the first flat-skills versus graph-skills benchmark run.
 
 Do not begin with a separate CLI, intent search, self-learning, or a database.
 

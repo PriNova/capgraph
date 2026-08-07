@@ -8,7 +8,7 @@ Current conclusion:
 
 > Use the official Blender Lab MCP add-on as a TCP bridge to the running UPBGE editor. Capgraph does not need an MCP client or the separate MCP server process.
 
-This approach is not yet fully validated. The official add-on has not yet been installed in UPBGE or tested through TCP. UPBGE support is not officially documented by Blender.
+This approach was validated against the installed UPBGE 5.3.0 Alpha build. A direct TCP request read editor state, and the complete Capgraph workflow created `PhysicsCube`, configured rigid-body physics and box collision, and returned `{"ok": true, "failures": []}` from the verifier. UPBGE support remains experimentally verified rather than officially documented by Blender.
 
 ## Required Add-on
 
@@ -196,14 +196,19 @@ Object.game.physics_type: available
 
 These checks cover the main APIs used by the official add-on and the first Capgraph workflow. The existing Capgraph scripts have also completed a real headless UPBGE editor test successfully.
 
-Still unverified:
+Verified:
 
 - installing and enabling the official add-on in UPBGE;
-- starting its interactive TCP server;
+- starting its interactive TCP server on `localhost:9876`;
 - sending a direct request from outside UPBGE;
-- executing Capgraph scripts through that request;
-- receiving verifier results through TCP;
-- screenshots and other optional official MCP tool code.
+- reading `bpy.app.version_string` and `Object.game.physics_type`;
+- executing all four Capgraph capability scripts through TCP;
+- receiving `{"ok": true, "failures": []}` from the verifier.
+
+Still unverified and deferred:
+
+- screenshots and other optional official MCP tool code;
+- control of a running game through `bge`.
 
 ## Editor and Runtime API Boundary
 
@@ -256,20 +261,21 @@ Required controls for Capgraph:
 
 The official protocol has no authentication token. Any local process that can connect to port 9876 can request Python execution while the bridge is running.
 
-## Next Validation
+## TypeScript Control Tool
 
-Run one narrow compatibility test:
+The pi package now registers `upbge_control`. It supports only these operations:
 
-1. Install the official MCP 1.0.0 add-on in UPBGE.
-2. Start its bridge on `localhost:9876`.
-3. Send a direct TCP `execute` request without running the MCP server.
-4. Read `bpy.app.version_string` and one existing object's `game.physics_type`.
-5. Create a cube through `create_cube.py`.
-6. Apply `add_rigid_body.py` and `add_collision.py`.
-7. Run `verify_physics_object.py`.
-8. Confirm that the returned JSON contains `{"ok": true, "failures": []}`.
+```text
+status
+create_cube
+add_rigid_body
+add_collision
+verify_physics_object
+```
 
-Only after this succeeds should Capgraph add a persistent TypeScript control tool.
+The tool fixes the endpoint to `127.0.0.1:9876`, validates object names, applies request and response size limits, supports cancellation and timeout, and maps each operation to a fixed wrapper that loads only known capability scripts. It does not accept arbitrary Python, host configuration, or script paths.
+
+The updated pi package completed a live tool-level validation against UPBGE 5.3.0 Alpha. It ran all five operations sequentially, created `CapgraphPhysicsCube`, and returned `{"ok": true, "failures": []}` from `verify_physics_object`.
 
 ## Sources
 

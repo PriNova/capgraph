@@ -15,18 +15,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function getExtensionPath(packageManifest: unknown, projectRoot: string): string {
+function getExtensionPaths(packageManifest: unknown, projectRoot: string): string[] {
   assert.ok(isRecord(packageManifest));
   assert.ok(isRecord(packageManifest.pi));
-  assert.deepEqual(packageManifest.pi.extensions, ["./extensions/skill-graph.ts"]);
+  assert.deepEqual(packageManifest.pi.extensions, [
+    "./extensions/skill-graph.ts",
+    "./extensions/upbge-control.ts",
+  ]);
 
   const extensions = packageManifest.pi.extensions;
   assert.ok(Array.isArray(extensions));
-  const extensionPath = extensions[0];
-  if (typeof extensionPath !== "string") {
-    assert.fail("package manifest extension path must be a string");
-  }
-  return resolve(projectRoot, extensionPath);
+  const extensionPaths = extensions.map((extensionPath) => {
+    if (typeof extensionPath !== "string") {
+      assert.fail("package manifest extension path must be a string");
+    }
+    return resolve(projectRoot, extensionPath);
+  });
+  return extensionPaths;
 }
 
 function parseTextResult(result: {
@@ -42,13 +47,13 @@ function parseTextResult(result: {
 test("runs the create physics object workflow through the pi extension", async () => {
   const projectRoot = fileURLToPath(new URL("../", import.meta.url));
   const packageContents = await readFile(resolve(projectRoot, "package.json"), "utf8");
-  const extensionPath = getExtensionPath(JSON.parse(packageContents), projectRoot);
+  const extensionPaths = getExtensionPaths(JSON.parse(packageContents), projectRoot);
   const settingsManager = SettingsManager.inMemory();
   const resourceLoader = new DefaultResourceLoader({
     cwd: projectRoot,
     agentDir: projectRoot,
     settingsManager,
-    additionalExtensionPaths: [extensionPath],
+    additionalExtensionPaths: extensionPaths,
     noExtensions: true,
     noSkills: true,
     noPromptTemplates: true,
@@ -72,6 +77,8 @@ test("runs the create physics object workflow through the pi extension", async (
     assert.deepEqual(extensionsResult.errors, []);
     const skillGraph = session.agent.state.tools.find((tool) => tool.name === "skill_graph");
     assert.ok(skillGraph, "pi did not register the skill_graph tool");
+    const upbgeControl = session.agent.state.tools.find((tool) => tool.name === "upbge_control");
+    assert.ok(upbgeControl, "pi did not register the upbge_control tool");
 
     const signal = new AbortController().signal;
     const inspectResult = parseTextResult(

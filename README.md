@@ -34,8 +34,8 @@ The capability implementations use Blender's `bpy` data API and UPBGE game setti
 
 ```text
 capabilities/              Graph-managed SKILL.md files and UPBGE scripts
-extensions/skill-graph.ts  pi custom-tool integration
-src/                       Graph loading, validation, and traversal
+extensions/               pi graph and UPBGE control tools
+src/                       Graph logic and direct UPBGE TCP transport
 examples/                  Workflow contracts
 tests/                     Unit and pi SDK integration tests
 docs/                      Architecture and compatibility documents
@@ -50,7 +50,7 @@ Each implemented UPBGE capability keeps its Python code under its own `scripts/`
 - pi-compatible runtime for extension use
 - UPBGE for editor execution and runtime validation
 
-Graph tests do not require UPBGE.
+Automated tests do not require UPBGE. The live control tool requires the official MCP add-on bridge at `127.0.0.1:9876`.
 
 ## Setup
 
@@ -83,10 +83,12 @@ Load the repository as a local pi package:
 pi -e .
 ```
 
-The extension registers the `skill_graph` custom tool with two operations:
+The package registers two custom tools:
 
-- `inspect(skill)` returns one metadata-only graph node.
-- `expand(skill)` returns the deterministic local dependency closure, selected skill prose, and explicit graph edges.
+- `skill_graph` inspects or expands a known root capability.
+- `upbge_control` executes an allowed editor operation through the bridge at `127.0.0.1:9876`.
+
+Allowed UPBGE operations are `status`, `create_cube`, `add_rigid_body`, `add_collision`, and `verify_physics_object`. The tool builds fixed Python wrappers and loads only the repository capability scripts. It does not accept model-authored Python or configurable script paths.
 
 Example root capability:
 
@@ -103,9 +105,9 @@ Current executable modules:
 - `capabilities/collision-add/scripts/add_collision.py`
 - `capabilities/physics-object-verify/scripts/verify_physics_object.py`
 
-These modules expose Python functions for one UPBGE process. An execution harness must load them and pass the same Blender object reference through creation, physics configuration, collision configuration, and verification.
+These modules expose Python functions for the UPBGE editor process. `upbge_control` resolves objects by validated names between TCP requests.
 
-UPBGE process control and end-to-end runtime validation are the next implementation step.
+The direct transport and complete create/configure/verify workflow have been validated against UPBGE 5.3.0 Alpha. Automated transport tests use a local mock server and do not require UPBGE.
 
 ## Documentation
 

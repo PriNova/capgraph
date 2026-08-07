@@ -183,4 +183,8 @@ Capgraph tests deterministic composition from a supplied root. It does not imple
 
 ## License
 
-No repository license has been selected. External redistribution or reuse requires permission until the project owner adds a license. This remains a public-release blocker, not an architectural task.
+Capgraph software and repository content outside `paper/` are licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for attribution.
+
+The technical report, its Markdown source, and bibliography under `paper/` are licensed under the [Creative Commons Attribution 4.0 International Public License](paper/LICENSE).
+
+Copyright 2026 Tino Wening.

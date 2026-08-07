@@ -4,7 +4,7 @@
 
 This document defines what "compatible with pi" means for Skill Graph V0.
 
-The contract keeps the experiment aligned with pi while preserving the main architectural constraint: the complete capability graph and complete skill library must not enter the model context.
+The contract keeps the experiment aligned with pi while preserving the main architectural constraint: the complete capability graph and all full skill bodies must not enter the model context. Normal pi skill discovery may expose the flat baseline's skill names and descriptions.
 
 ## 2. Supported Integration Surface
 
@@ -59,19 +59,34 @@ Requirements:
 - references to scripts, assets, and documents use paths relative to the skill directory
 - instructions and executable files are written in English
 
-Capability graph IDs may use domain-oriented dotted names such as `object.create`. A graph node must map that ID explicitly to a valid skill name such as `object-create`.
+Capability graph IDs may use domain-oriented dotted names such as `object.create`. Each skill declares its capability ID and outgoing relations through namespaced entries in the standard `metadata` field:
+
+```yaml
+metadata:
+  capgraph-id: "object.create"
+  capgraph-requires: "scene.create"
+  capgraph-verify-with: "object.verify"
+  capgraph-recover-with: "object.repair"
+```
+
+Agent Skills `metadata` is a map from string keys to string values. Custom top-level fields, nested objects, and YAML arrays must not be used. Relation values are whitespace-separated capability IDs. The skill `name` must match its parent directory; the graph loader derives the `SKILL.md` path directly and does not require a central capability-to-skill mapping.
 
 ## 5. Discovery and Context Contract
 
-Graph-managed skill files must not be placed in a package resource path that pi automatically loads as a complete skill library.
+Pi uses progressive disclosure for normally discovered skills:
 
-V0 stores them under a non-discovered directory such as:
+1. At startup, pi scans skill locations and adds skill names and descriptions from frontmatter to the system prompt.
+2. The agent loads a full `SKILL.md` with `read` only when needed.
+
+The flat baseline must use this normal behavior. It must not preload all full skill bodies.
+
+Graph-managed skill files must not be placed in a package resource path that pi automatically discovers. V0 stores them under a non-discovered directory such as:
 
 ```text
 capabilities/
 ```
 
-The pi package manifest must not register this complete directory under `pi.skills` for the graph experiment.
+The pi package manifest must not register this complete directory under `pi.skills` for the graph experiment. This prevents all graph-managed capability names and descriptions from becoming an always-present catalog in the system prompt; it is not intended to prevent pi from preloading full skill bodies, because pi does not normally preload them.
 
 The extension must expose only:
 
@@ -80,7 +95,7 @@ The extension must expose only:
 3. associated verification capabilities,
 4. associated recovery capabilities.
 
-The complete `graph.json` content and unrelated `SKILL.md` files must remain outside model context.
+The complete in-memory graph index, unrelated capability metadata, unrelated skill frontmatter, and unrelated full `SKILL.md` contents must remain outside model context.
 
 ## 6. Runtime Extension Contract
 
@@ -96,7 +111,7 @@ expand(id)
 The tool must:
 
 - accept an explicit capability ID
-- load graph data outside model context
+- scan capability frontmatter and build the graph index outside model context
 - return deterministic results
 - read only skill files selected by expansion
 - report missing nodes, missing skill files, and cycles as tool errors
@@ -129,7 +144,7 @@ Pi extensions and skills can execute code with user permissions. Therefore:
 - project-local integration runs only after pi trusts the project
 - graph expansion does not execute capability scripts
 - execution requires a separate explicit agent or tool action
-- paths from graph metadata must remain inside the package root
+- discovered capability paths must remain inside the package root
 - malformed or escaping paths must be rejected
 - tool output must not expose credentials, environment secrets, or unrelated files
 
@@ -148,7 +163,13 @@ Flat and graph benchmark variants must use:
 
 Only capability-selection and composition support may differ.
 
-The flat variant may expose the benchmark skill set through pi skill discovery. The graph variant must expose only the expanded local selection through the Skill Graph extension.
+The flat variant must expose the benchmark skill set through normal pi skill discovery: all skill names and descriptions are available in the system prompt, while full `SKILL.md` contents load on demand. The graph variant must bypass normal discovery for graph-managed skills and expose only the expanded local selection through the Skill Graph extension.
+
+Context measurements must distinguish:
+
+- always-present names and descriptions,
+- full skill prose loaded on demand,
+- graph tool-result content.
 
 Automated benchmark runs should use the pi SDK with in-memory sessions where practical. Benchmark integration is deferred until graph expansion works inside pi.
 
@@ -157,7 +178,7 @@ Automated benchmark runs should use the pi SDK with in-memory sessions where pra
 V0 is pi-compatible when all of these checks pass:
 
 1. Pi loads the local package without extension diagnostics.
-2. Every capability `SKILL.md` passes pi-compatible Agent Skills validation.
+2. Every capability `SKILL.md` passes the official Agent Skills validation, including string-only `metadata` values and matching skill/directory names.
 3. `inspect` returns one requested graph node.
 4. `expand` returns only the expected local capability set.
 5. Unrelated skill prose does not appear in the model context or tool result.

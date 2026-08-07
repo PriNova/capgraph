@@ -71,9 +71,11 @@ What is actually executed?
 
 The full graph MUST NOT enter the LLM context.
 
+Pi's normal flat-skill discovery already uses progressive disclosure: it puts only discovered skill names and descriptions from frontmatter into the system prompt, then the agent loads a full `SKILL.md` with `read` when needed. The flat baseline must preserve this behavior; it must not preload every skill body.
+
 The Skill Graph belongs to the **agent harness / external state**.
 
-Only a relevant local subgraph and selected `SKILL.md` files should be exposed to the agent.
+Only a relevant local subgraph and selected full `SKILL.md` contents should be exposed to the agent by the graph extension.
 
 Example:
 
@@ -117,7 +119,7 @@ Do NOT build these yet:
 - skill marketplace
 - complete UPBGE coverage
 - complex graph database infrastructure
-- distributed YAML metadata per skill unless later justified
+- custom top-level `SKILL.md` frontmatter fields or nested/non-string Agent Skills metadata
 
 Avoid overengineering.
 
@@ -163,11 +165,11 @@ skills/
 └── ...
 ```
 
-The agent decides relationships itself.
+Pi discovers the skills and includes only their frontmatter names and descriptions in the system prompt. The agent selects and reads full `SKILL.md` files on demand, then determines relationships itself.
 
 ### Experiment: Skill Graph
 
-Same skill prose, but graph metadata additionally provides relationships.
+Same skill prose and the same on-demand principle, but graph metadata additionally provides relationships. Given a known root capability, the extension expands the local subgraph and returns only the selected full skill contents.
 
 ```text
 character.create
@@ -187,7 +189,6 @@ Start as a pi-compatible package.
 ```text
 skill-graph/
 ├── package.json
-├── graph.json
 ├── capabilities/
 │   ├── scene-create/
 │   │   └── SKILL.md
@@ -208,52 +209,45 @@ skill-graph/
 
 Keep graph loading and traversal in TypeScript so the pi extension can use them directly. Keep later UPBGE execution and verification scripts in Python where required by UPBGE.
 
-Store graph-managed skills under `capabilities/`, not a pi auto-discovered `skills/` package resource. The extension must load only the files selected by graph expansion.
+Store graph-managed skills under `capabilities/`, not a pi auto-discovered `skills/` package resource. This prevents the graph variant from adding every capability's frontmatter to the system prompt. The extension must load only the full skill files selected by graph expansion. This differs from normal pi discovery, which exposes all discovered names and descriptions but still loads full skill bodies only on demand.
 
-Do not introduce a database until plain JSON becomes a real limitation.
+Do not introduce a database until distributed skill metadata becomes a real limitation.
 
 ---
 
-## 8. Initial Graph Format
+## 8. Initial Graph Metadata Format
 
-Each node maps its graph ID to a valid Agent Skills name. Graph IDs may use dotted domain names; skill names use lowercase letters, numbers, and hyphens.
+Store each node's outgoing relationships in its own `SKILL.md`. Do not maintain a separate `graph.json`.
 
-Example `graph.json`:
+The Agent Skills specification permits only defined top-level frontmatter fields. Custom data belongs under `metadata`, which must be a map from string keys to string values. Therefore, relation lists use whitespace-separated capability IDs rather than YAML arrays or nested objects.
 
-```json
-{
-  "character.create": {
-    "skill": "character-create",
-    "requires": [
-      "mesh.create",
-      "collision.add",
-      "controls.character"
-    ],
-    "verify_with": [
-      "character.verify"
-    ],
-    "recover_with": [
-      "character.repair"
-    ]
-  }
-}
+Example:
+
+```yaml
+---
+name: character-create
+description: Creates a playable character. Use when a scene needs a controllable character.
+metadata:
+  capgraph-id: "character.create"
+  capgraph-requires: "mesh.create collision.add controls.character"
+  capgraph-verify-with: "character.verify"
+  capgraph-recover-with: "character.repair"
+---
 ```
 
-The `skill` field is required for every node. It resolves to `capabilities/<skill>/SKILL.md`.
+Requirements:
+
+- `name` must be a valid Agent Skills name and match its parent directory.
+- `capgraph-id` is required and may use a dotted domain-oriented capability ID.
+- `capgraph-requires`, `capgraph-verify-with`, and `capgraph-recover-with` are optional strings.
+- Each relation string contains whitespace-separated capability IDs.
+- All `metadata` keys and values remain strings.
+- The extension scans capability frontmatter and builds the in-memory graph outside model context.
+- The `SKILL.md` path is derived from the discovered file; no separate skill-name mapping is required.
 
 Keep the schema intentionally small.
 
-Suggested V0 relations:
-
-- `requires`
-- `verify_with`
-- `recover_with`
-
-Optional only if needed:
-- `decomposes_into`
-- `enables`
-
-Do not add additional edge types before a concrete use case requires them.
+Do not add additional relation keys before a concrete use case requires them.
 
 ---
 
@@ -460,7 +454,10 @@ Track:
 Did the task complete correctly?
 
 ### Context/token usage
-How much skill/tool context entered the model?
+How much skill/tool context entered the model? Track separately:
+- always-present skill names and descriptions,
+- full skill prose loaded on demand,
+- graph tool results.
 
 ### Tool/agent steps
 How many exploration or execution actions were required?
@@ -713,8 +710,8 @@ When a new problem layer appears, record it under `docs/open-questions.md` rathe
 ## 23. Recommended First Tasks for the Coding Agent
 
 1. Create the pi package skeleton.
-2. Define a minimal `graph.json` schema with explicit skill-name mappings.
-3. Implement graph loading in TypeScript.
+2. Define the minimal standard-compliant `metadata.capgraph-*` convention.
+3. Implement TypeScript loading that scans capability `SKILL.md` frontmatter and builds an in-memory graph.
 4. Implement `inspect(id)`.
 5. Implement recursive `expand(id)` with cycle detection and deterministic ordering.
 6. Register both operations through a pi `skill_graph` custom tool.
@@ -745,7 +742,7 @@ physics_object.create
  ├─ requires → collision.add
  └─ verify_with → physics_object.verify
 
-The pi extension reads only the selected `SKILL.md` files and returns their content to the agent through the `skill_graph` tool result.
+Each capability declares these outgoing relationships through standard-compliant string values under `metadata` in its `SKILL.md`. The pi extension builds the graph index outside model context, then reads only the selected full `SKILL.md` files and returns their content through the `skill_graph` tool result.
 
 Agent executes task.
 

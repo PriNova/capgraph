@@ -9,6 +9,7 @@ export type CapabilityId = string;
 
 export interface CapabilityNode {
   readonly skill: string;
+  readonly filePath: string;
   readonly requires: readonly CapabilityId[];
   readonly verify_with: readonly CapabilityId[];
   readonly recover_with: readonly CapabilityId[];

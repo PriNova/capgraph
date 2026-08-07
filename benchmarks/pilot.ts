@@ -134,6 +134,20 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function isThinkingLevel(value: string | undefined): value is ThinkingLevel {
+  switch (value) {
+    case "minimal":
+    case "low":
+    case "medium":
+    case "high":
+    case "xhigh":
+    case "max":
+      return true;
+    default:
+      return false;
+  }
+}
+
 function parsePositiveInteger(value: string | undefined, option: string): number {
   if (value === undefined || !/^\d+$/.test(value)) {
     throw new Error(`${option} requires a positive integer.`);
@@ -160,7 +174,7 @@ function parseOptions(args: readonly string[]): RunnerOptions {
       model = value;
       index += 1;
     } else if (option === "--thinking") {
-      if (value === undefined || !THINKING_LEVELS.some((level) => level === value)) {
+      if (!isThinkingLevel(value)) {
         throw new Error(`--thinking must be one of: ${THINKING_LEVELS.join(", ")}.`);
       }
       thinkingLevel = value;

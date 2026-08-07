@@ -45,3 +45,9 @@ export interface LoadResult {
   readonly skill: SkillName;
   readonly content: string;
 }
+
+export interface LoadManyResult {
+  readonly root: SkillName;
+  readonly execution: readonly LoadResult[];
+  readonly verification: readonly LoadResult[];
+}

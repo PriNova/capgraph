@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
+
+import { parseFrontmatter } from "@earendil-works/pi-coding-agent";
 
 import {
   BENCHMARK_MODEL,
@@ -87,6 +91,36 @@ test("requires graph expansion and root loading before mutation", () => {
       reason: "Graph run expanded the root capability only after UPBGE mutation started.",
     },
   );
+});
+
+test("generated Flat and Graph fixtures have byte-identical Markdown bodies", async () => {
+  const capabilitiesPath = fileURLToPath(new URL("../capabilities/", import.meta.url));
+
+  for (const skill of BENCHMARK_SKILLS) {
+    const graphSource = await readFile(`${capabilitiesPath}/${skill}/SKILL.md`, "utf8");
+    const flatFixture = createFlatSkillContents(graphSource);
+    const graphBody = parseFrontmatter(graphSource).body;
+    const flatBody = parseFrontmatter(flatFixture).body;
+
+    assert.equal(flatBody, graphBody, `${skill} Markdown body changed during Flat generation`);
+  }
+});
+
+test("composite root prose does not repeat graph dependency names", async () => {
+  const rootPath = fileURLToPath(
+    new URL("../capabilities/physics-object-create/SKILL.md", import.meta.url),
+  );
+  const body = parseFrontmatter(await readFile(rootPath, "utf8")).body;
+
+  for (const relatedSkill of [
+    "object-create",
+    "rigid-body-add",
+    "collision-add",
+    "physics-object-verify",
+  ]) {
+    assert.doesNotMatch(body, new RegExp(`\\b${relatedSkill}\\b`));
+  }
+  assert.doesNotMatch(body, /create object\s*(?:→|->).*verify/is);
 });
 
 test("creates flat skill prose without graph metadata", () => {

@@ -6,11 +6,11 @@ The project tests whether explicit skill dependencies, verification, recovery, a
 
 UPBGE is the first test domain. The graph implementation remains domain-independent.
 
-## V0 Status
+## Benchmark Status
 
-The technical V0 vertical slice is complete and marked by the Git tag `v0-vertical-slice`. It includes graph expansion from a known root capability, pi tool integration, direct UPBGE editor control, capability-script execution, verification, automated tests, and a successful live workflow.
+The technical V0 vertical slice and controlled V0 benchmark are complete. Flat and Graph both achieved 5/5 verified success. Graph used slightly fewer unique capability-context bytes but increased turns, tool calls, duration, provider usage, and cost. The historical V0 specification and report remain unchanged.
 
-The V0 research evaluation is not complete. The next step is to run and record the flat-skills versus Skill Graph benchmark. General natural-language root selection and unrestricted UPBGE control remain outside V0.
+V0.1 adds Flat, Graph Progressive, and Graph Batch conditions after removing dependency-sequence prose from the composite root. It isolates one-skill-at-a-time loading overhead. General natural-language root selection and unrestricted UPBGE control remain outside scope.
 
 ## Core Model
 
@@ -81,17 +81,23 @@ npm run test:workflow
 
 The current workflow test loads the pi extension and validates graph inspection, metadata-only expansion, and one-skill loading without a model, network connection, persistent session, or UPBGE process.
 
-## Pilot Benchmark Runner
+## Benchmark Runners
 
-Run a selected part of the controlled flat-skills versus Skill Graph pilot:
+The historical V0 runner remains available:
 
 ```bash
 npm run benchmark:pilot -- --start 1 --end 2
 ```
 
-The default benchmark model is `openai-codex/gpt-5.6-luna` with `max` reasoning. `--model` and `--thinking` can override it for exploratory runs. The runner uses a manual UPBGE reset gate. Before each model run, it confirms that the bridge is available and `CapgraphBenchmarkCube` does not exist, then waits for confirmation. It never removes or resets UPBGE objects. A graph run must successfully expand and load `physics-object-create` before its first UPBGE mutation or it is recorded as `protocol_failure`. Raw attempt records are written as ignored JSON Lines under `benchmarks/results/` unless `--output <path>` is supplied.
+Run the three-condition V0.1 loading-policy benchmark with:
 
-See [V0 pilot benchmark specification](docs/v0-pilot-benchmark-specification.md) for the fixed ten-run schedule and measurement contract.
+```bash
+npm run benchmark:loading-policy -- --start 1 --end 3 --auto-reset
+```
+
+Both runners default to `openai-codex/gpt-5.6-luna` with `max` reasoning. V0.1 uses a manual clean-scene gate by default. Its optional `--auto-reset` mode deletes only `CapgraphBenchmarkCube` and its mesh when unused, then verifies that the object is absent before timing starts. Raw attempt records are written as ignored JSON Lines under `benchmarks/results/` unless `--output <path>` is supplied.
+
+See the [V0 report](docs/v0-pilot-benchmark-report.md), [V0.1 specification](docs/v0.1-loading-policy-benchmark-specification.md), and [V1 composition design](docs/v1-composition-benchmark-specification.md).
 
 ## pi Integration
 
@@ -132,10 +138,12 @@ The direct transport and complete create/configure/verify workflow have been val
 - [Project handoff](docs/skill-graph-project-handoff.md)
 - [V0 pilot benchmark specification](docs/v0-pilot-benchmark-specification.md)
 - [V0 pilot benchmark report](docs/v0-pilot-benchmark-report.md)
+- [V0.1 loading-policy benchmark specification](docs/v0.1-loading-policy-benchmark-specification.md)
+- [V1 composition benchmark specification](docs/v1-composition-benchmark-specification.md)
 - [Pi compatibility contract](docs/pi-compatibility-contract.md)
 - [UPBGE control transport](docs/upbge-control-transport.md)
 - [Open questions](docs/open-questions.md)
 
 ## Project Scope
 
-V0 tests graph-based capability composition from a known root skill. Its technical vertical slice is complete; comparative benchmark evaluation remains pending. V0 intentionally does not include intent search, vector retrieval, graph learning, a database, or multi-agent orchestration.
+Capgraph benchmarks graph-based capability composition from a known root skill. It intentionally excludes intent search, vector retrieval, graph learning, databases, and multi-agent orchestration.

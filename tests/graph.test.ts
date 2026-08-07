@@ -3,7 +3,12 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import type { ExpandResult, InspectResult, LoadResult } from "../src/types/graph.ts";
+import type {
+  ExpandResult,
+  InspectResult,
+  LoadManyResult,
+  LoadResult,
+} from "../src/types/graph.ts";
 
 import {
   buildGraph,
@@ -11,6 +16,7 @@ import {
   GraphValidationError,
   inspect,
   loadGraph,
+  loadMany,
   loadSkill,
   parseCapabilitySkill,
   validateRequiresAcyclic,
@@ -164,6 +170,50 @@ test("load returns one skill body without frontmatter or paths", async () => {
   assert.match(result.content, /^# Create Physics Object/);
   assert.doesNotMatch(result.content, /^---/);
   assert.deepEqual(Object.keys(result), ["skill", "content"]);
+});
+
+test("batch load returns the deterministic closure with verification kept separate", async () => {
+  const capabilitiesPath = fileURLToPath(new URL("../capabilities/", import.meta.url));
+  const graph = await loadGraph(capabilitiesPath);
+  const result: LoadManyResult = await loadMany(graph, "physics-object-create");
+
+  assert.equal(result.root, "physics-object-create");
+  assert.deepEqual(
+    result.execution.map(({ skill }) => skill),
+    ["object-create", "rigid-body-add", "collision-add", "physics-object-create"],
+  );
+  assert.deepEqual(
+    result.verification.map(({ skill }) => skill),
+    ["physics-object-verify"],
+  );
+  for (const loaded of [...result.execution, ...result.verification]) {
+    assert.match(loaded.content, /^# /);
+    assert.doesNotMatch(loaded.content, /^---/);
+    assert.deepEqual(Object.keys(loaded), ["skill", "content"]);
+  }
+});
+
+test("batch load omits recovery prose until a failure requires it", async () => {
+  const root = parseExpandableSkill({
+    name: "workflow-create",
+    requires: "component-create",
+    verifyWith: "workflow-verify",
+    recoverWith: "workflow-repair",
+  });
+  const graph = buildGraph([
+    root,
+    parseExpandableSkill({ name: "component-create" }),
+    parseExpandableSkill({ name: "workflow-verify" }),
+    parseExpandableSkill({ name: "workflow-repair" }),
+  ]);
+
+  const result = await loadMany(graph, "workflow-create");
+
+  assert.deepEqual(result.execution.map(({ skill }) => skill), [
+    "component-create",
+    "workflow-create",
+  ]);
+  assert.deepEqual(result.verification.map(({ skill }) => skill), ["workflow-verify"]);
 });
 
 test("load honors an aborted read", async () => {

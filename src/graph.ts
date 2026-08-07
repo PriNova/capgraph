@@ -9,6 +9,7 @@ import {
   type ExpansionEdge,
   type GraphRelation,
   type InspectResult,
+  type LoadManyResult,
   type LoadResult,
   type SkillGraph,
   type SkillName,
@@ -309,6 +310,37 @@ export async function loadSkill(
   throwIfAborted(options.signal);
   const node = getNode(graph, skill);
   return { skill, content: await readSkillBody(node, options) };
+}
+
+export async function loadMany(
+  graph: SkillGraph,
+  root: SkillName,
+  options: GraphReadOptions = {},
+): Promise<LoadManyResult> {
+  const expansion = await expand(graph, root, options);
+  const verificationNames = new Set(
+    expansion.edges
+      .filter(({ relation }) => relation === "verify_with")
+      .map(({ to }) => to),
+  );
+  const recoveryNames = new Set(
+    expansion.edges
+      .filter(({ relation }) => relation === "recover_with")
+      .map(({ to }) => to),
+  );
+  const executionNames = expansion.skills
+    .map(({ skill }) => skill)
+    .filter((skill) => !verificationNames.has(skill) && !recoveryNames.has(skill));
+  const orderedVerificationNames = expansion.skills
+    .map(({ skill }) => skill)
+    .filter((skill) => verificationNames.has(skill));
+
+  const [execution, verification] = await Promise.all([
+    Promise.all(executionNames.map((skill) => loadSkill(graph, skill, options))),
+    Promise.all(orderedVerificationNames.map((skill) => loadSkill(graph, skill, options))),
+  ]);
+  throwIfAborted(options.signal);
+  return { root, execution, verification };
 }
 
 export async function expand(

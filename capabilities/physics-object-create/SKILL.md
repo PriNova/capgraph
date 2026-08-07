@@ -12,65 +12,25 @@ metadata:
 
 Use this workflow to create one persistent UPBGE editor object with rigid-body game physics and explicit collision bounds.
 
-## PREFER
+## INPUTS AND OUTPUT
 
-Use `bpy` for all editor-time changes. Keep one object reference through the complete workflow. Apply capabilities in this order:
+Required inputs are the object name, geometry, target scene and collection, transform, physical properties, and collision shape. Use task values when supplied. The default benchmark object is a cube with mass `1.0` and collision shape `BOX`.
 
-```text
-create object → configure rigid body → configure collision → verify
-```
+The capability returns one persistent editor object. Keep its identity stable for the complete operation. Blender can alter a requested name when a duplicate exists, so report the final object name.
 
-The first vertical slice creates a cube with these core calls:
+## EXECUTION SEMANTICS
 
-```python
-import bpy
+Use `bpy` for persistent editor-time state. Use the capability mechanism to resolve composition; the CapGraph metadata is the source of truth when graph metadata is available. Execute resolved requirements in dependency-first order, then use the declared verifier. Do not duplicate composition in this skill body.
 
-bpy.ops.mesh.primitive_cube_add(
-    size=2.0,
-    enter_editmode=False,
-    align="WORLD",
-    location=(0.0, 0.0, 0.0),
-    rotation=(0.0, 0.0, 0.0),
-)
-obj = bpy.context.object
-obj.name = "PhysicsCube"
-
-obj.game.physics_type = "RIGID_BODY"
-obj.game.mass = 1.0
-obj.game.use_collision_bounds = True
-obj.game.collision_bounds_type = "BOX"
-obj.game.use_ghost = False
-```
-
-Use the exact values from the task when name, transform, size, mass, or collision shape differ.
+All changes must target the same object and the intended scene and collection. Use the exact requested values. Verification must inspect final editor state, not selection state or an interactive simulation.
 
 ## AVOID
 
 - Do not mix UPBGE game physics (`obj.game`) with Blender rigid-body world settings (`obj.rigid_body`).
 - Do not use runtime `bge` APIs to create persistent editor configuration.
 - Do not search for the object by display name between steps; Blender can alter duplicate names.
-- Do not run verification after only object creation. All required capabilities must finish first.
+- Do not accept partially configured state as successful completion.
 - Do not start an interactive game simulation before editor-state verification passes.
-
-## IMPLEMENTATION SCRIPTS
-
-Execute these capability scripts in one UPBGE Python process so the same object reference passes through all steps:
-
-1. [`../object-create/scripts/create_cube.py`](../object-create/scripts/create_cube.py): `create_cube(...)`
-2. [`../rigid-body-add/scripts/add_rigid_body.py`](../rigid-body-add/scripts/add_rigid_body.py): `add_rigid_body(obj, ...)`
-3. [`../collision-add/scripts/add_collision.py`](../collision-add/scripts/add_collision.py): `add_collision(obj, ...)`
-4. [`../physics-object-verify/scripts/verify_physics_object.py`](../physics-object-verify/scripts/verify_physics_object.py): `verify_physics_object(obj, ...)`
-
-The graph or execution harness owns composition. This skill does not duplicate those implementations.
-
-## EXECUTE
-
-1. Inspect the current scene, active collection, mode, and existing object names.
-2. Run `object-create` and retain its returned `obj` reference.
-3. Run `rigid-body-add` on `obj` with the requested physics properties.
-4. Run `collision-add` on the same `obj` with the requested collision properties.
-5. Run `physics-object-verify` with `obj`, target scene, target collection, and expected values.
-6. Report the final Blender object name because Blender can resolve name collisions.
 
 ## VERIFY
 
@@ -83,9 +43,11 @@ Success requires the verifier to confirm all four state groups:
 
 For the first cube workflow, require collision shape `BOX` unless the task explicitly requests another shape.
 
-## RECOVER
+## COMPLETION AND FAILURE
 
-Use verifier output to repeat only the failed capability. Recreate the object only when creation or linkage is invalid. Preserve a valid object while repairing physics or collision properties. Never switch to Blender's separate rigid-body system as a fallback.
+Completion requires the declared verifier to report no failures for object identity, linkage, transform, physics, and collision state. A partially configured object is not success.
+
+If verification fails, preserve valid state and use only recovery behavior supplied by the capability mechanism or the failing capability. Never switch to Blender's separate rigid-body system as a fallback.
 
 ## API REFERENCES
 

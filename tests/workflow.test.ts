@@ -147,6 +147,32 @@ test("runs the create physics object workflow through the pi extension", async (
     assert.match(loadResult.content, /^# Create Physics Object/);
     assert.doesNotMatch(loadResult.content, /^---/);
     assert.deepEqual(Object.keys(loadResult), ["skill", "content"]);
+
+    const loadManyResult = parseTextResult(
+      await skillGraph.execute(
+        "load-many-physics-object",
+        { operation: "load_many", skill: "physics-object-create" },
+        signal,
+      ),
+    );
+    assert.ok(isRecord(loadManyResult));
+    assert.equal(loadManyResult.root, "physics-object-create");
+    assert.ok(Array.isArray(loadManyResult.execution));
+    assert.ok(Array.isArray(loadManyResult.verification));
+    assert.deepEqual(
+      loadManyResult.execution.map((loaded) => {
+        assert.ok(isRecord(loaded));
+        return loaded.skill;
+      }),
+      ["object-create", "rigid-body-add", "collision-add", "physics-object-create"],
+    );
+    assert.deepEqual(
+      loadManyResult.verification.map((loaded) => {
+        assert.ok(isRecord(loaded));
+        return loaded.skill;
+      }),
+      ["physics-object-verify"],
+    );
   } finally {
     session.dispose();
   }

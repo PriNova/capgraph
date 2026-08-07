@@ -765,7 +765,7 @@ When a new problem layer appears, record it under `docs/open-questions.md` rathe
 
 The technical V0 vertical slice is complete and marked by the Git tag `v0-vertical-slice`. The implementation covers the known-root graph workflow, pi integration, controlled UPBGE execution, verification, automated tests, and a successful live tool-level run.
 
-The V0 pilot benchmark is defined in [V0 Flat Skills vs Skill Graph Pilot Benchmark](v0-pilot-benchmark-specification.md). An exploratory pair exposed excessive context from eager skill-body expansion and is not part of the formal result set. The formal progressive-disclosure evaluation remains open until five flat-skills and five Skill Graph runs use the revised contract. Natural-language root resolution and general unrestricted UPBGE control remain deferred beyond V0.
+The V0 pilot benchmark is defined in [V0 Flat Skills vs Skill Graph Pilot Benchmark](v0-pilot-benchmark-specification.md), and its completed result is recorded in [V0 Flat Skills vs Skill Graph Pilot Benchmark Report](v0-pilot-benchmark-report.md). An exploratory pair exposed excessive context from eager skill-body expansion and is not part of the formal result set. The formal progressive-disclosure evaluation completed five Flat Skills and five Skill Graph runs with 100% success in both conditions; Flat Skills were more efficient for this shallow workflow. Natural-language root resolution and general unrestricted UPBGE control remain deferred beyond V0.
 
 ### Completed:
 
@@ -792,10 +792,11 @@ The V0 pilot benchmark is defined in [V0 Flat Skills vs Skill Graph Pilot Benchm
 21. Removed workflow-order guidance from the UPBGE execution tool and made successful root expansion before mutation an explicit benchmark protocol requirement.
 22. Used the first paired pilot result to replace eager skill-body expansion with metadata-only expansion and progressive `load(skill)` disclosure; graph benchmark runs now require root expansion and root loading before mutation.
 23. Fixed the formal pilot default at `openai-codex/gpt-5.6-luna` with reasoning level `max`.
+24. Completed and reported the ten-run progressive-disclosure pilot: both conditions passed 5/5, while Skill Graph used more median turns, tool calls, duration, tokens, and cost for this shallow workflow.
 
 ### Next tasks:
 
-1. Execute a fresh ten-run progressive-disclosure pilot and record the report.
+1. Decide whether a later benchmark should test shared or transitive dependencies and optional recovery; do not add more infrastructure to the current simple workflow.
 
 Do not begin with a separate CLI, intent search, self-learning, or a database.
 

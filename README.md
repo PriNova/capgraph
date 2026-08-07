@@ -131,6 +131,7 @@ The direct transport and complete create/configure/verify workflow have been val
 
 - [Project handoff](docs/skill-graph-project-handoff.md)
 - [V0 pilot benchmark specification](docs/v0-pilot-benchmark-specification.md)
+- [V0 pilot benchmark report](docs/v0-pilot-benchmark-report.md)
 - [Pi compatibility contract](docs/pi-compatibility-contract.md)
 - [UPBGE control transport](docs/upbge-control-transport.md)
 - [Open questions](docs/open-questions.md)

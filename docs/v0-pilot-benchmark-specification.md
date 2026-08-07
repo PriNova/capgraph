@@ -266,6 +266,8 @@ Store raw run records as JSON Lines so interrupted benchmark execution does not 
 
 ## 12. Report
 
+The completed formal result is recorded in [V0 Flat Skills vs Skill Graph Pilot Benchmark Report](v0-pilot-benchmark-report.md).
+
 Report counts and medians. Do not infer statistical significance from ten runs.
 
 Minimum table:

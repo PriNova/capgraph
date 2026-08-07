@@ -8,6 +8,9 @@ export const V1_OBJECT_NAME = "CapgraphVehicle";
 export const V1_CAMERA_NAME = "CapgraphVehicleCamera";
 export const V1_COLLECTION_NAME = "CapgraphVehicleCollection";
 export const V1_ROOT_SKILL = "vehicle-create";
+export const V1_EXPECTED_COLLISION_GROUP: readonly boolean[] = [true, ...Array<boolean>(15).fill(false)];
+export const V1_EXPECTED_COLLISION_MASK: readonly boolean[] = [true, true, ...Array<boolean>(14).fill(false)];
+export const V1_FAULT_COLLISION_MASK: readonly boolean[] = [true, ...Array<boolean>(15).fill(false)];
 
 export const V1_EXPECTED_ORDER = [
   "mesh-object-create",
@@ -68,16 +71,21 @@ export function v1Prompt(variant: V1Variant): string {
 }
 
 export interface V1RecordedToolCall { readonly name: string; readonly args: unknown; readonly isError?: boolean }
+export interface V1Assessment { readonly conformant: boolean; readonly reasons: readonly string[] }
 interface ProtocolResult { readonly conformant: boolean; readonly reason: string | null }
 function record(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
 
-export function isCompleteV1VerifierCall(call: V1RecordedToolCall): boolean {
+export function isCompleteV1VerificationCall(call: V1RecordedToolCall): boolean {
   return call.name === "upbge_control" &&
     call.isError === false &&
     record(call.args) &&
     call.args.operation === "verify_state" &&
     call.args.object_name === V1_OBJECT_NAME &&
-    call.args.profile === "vehicle";
+    typeof call.args.profile === "string";
+}
+
+export function isCompleteV1VerifierCall(call: V1RecordedToolCall): boolean {
+  return isCompleteV1VerificationCall(call) && record(call.args) && call.args.profile === "vehicle";
 }
 
 export function v1IrrelevantLoadedSkills(variant: V1Variant, loadedSkills: readonly string[]): string[] {
@@ -89,23 +97,97 @@ function graphCall(call: V1RecordedToolCall, operation: string, skill = V1_ROOT_
   return call.name === "skill_graph" && call.isError === false && record(call.args) && call.args.operation === operation && call.args.skill === skill;
 }
 
-export function evaluateV1Protocol(condition: V1Condition, variant: V1Variant, calls: readonly V1RecordedToolCall[]): ProtocolResult {
-  if (condition === "flat") {
-    return calls.some((call) => call.name === "read" && call.isError === true)
-      ? { conformant: false, reason: "Flat run attempted a blocked or failed fixture read." }
-      : { conformant: true, reason: null };
-  }
-  if (calls.some((call) => call.name === "read")) return { conformant: false, reason: "Graph run used flat read discovery." };
+export function evaluateV1Protocol(condition: V1Condition, _variant: V1Variant, calls: readonly V1RecordedToolCall[]): ProtocolResult {
+  if (condition === "flat") return { conformant: true, reason: null };
+
   const expand = calls.findIndex((call) => graphCall(call, "expand"));
-  const batches = calls.map((call, i) => graphCall(call, "load_many") ? i : -1).filter((i) => i >= 0);
+  const batches = calls.map((call, index) => graphCall(call, "load_many") ? index : -1).filter((index) => index >= 0);
   const mutation = calls.findIndex((call) => call.name === "upbge_control" && record(call.args) && !["status", "verify_state"].includes(String(call.args.operation)));
-  if (expand < 0 || batches.length !== 1 || batches[0]! < expand) return { conformant: false, reason: "Graph must expand then batch-load vehicle-create exactly once." };
-  if (mutation >= 0 && batches[0]! > mutation) return { conformant: false, reason: "Graph execution started before batch loading." };
-  const recoveryLoads = calls.filter((call) => graphCall(call, "load", "vehicle-collision-repair"));
-  const firstVerify = calls.findIndex((call) => call.name === "upbge_control" && record(call.args) && call.args.operation === "verify_state");
-  if (recoveryLoads.some((call) => calls.indexOf(call) < firstVerify)) return { conformant: false, reason: "Recovery prose was eagerly loaded." };
-  if (variant === "normal" && recoveryLoads.length > 0) return { conformant: false, reason: "Normal run loaded recovery prose." };
+  if (expand < 0 || batches.length !== 1 || batches[0]! < expand) {
+    return { conformant: false, reason: "Graph must expand then batch-load vehicle-create exactly once." };
+  }
+  if (mutation >= 0 && batches[0]! > mutation) {
+    return { conformant: false, reason: "Graph execution started before batch loading." };
+  }
+  const disallowedLoads = calls.filter((call) => call.name === "skill_graph" && call.isError === false && record(call.args) && call.args.operation === "load" && call.args.skill !== "vehicle-collision-repair");
+  if (disallowedLoads.length > 0) {
+    return { conformant: false, reason: "Graph Batch run used an individual non-recovery graph load." };
+  }
   return { conformant: true, reason: null };
+}
+
+export function evaluateV1VerifierResults(
+  variant: V1Variant,
+  firstResult: boolean | null,
+  secondResult: boolean | null,
+  firstFailures: readonly unknown[] = [],
+): ProtocolResult {
+  if (variant === "normal") return { conformant: true, reason: null };
+  if (firstResult !== false) return { conformant: false, reason: "Recovery run did not observe the controlled first-verifier failure." };
+  const failure = firstFailures[0];
+  if (
+    firstFailures.length !== 1 ||
+    !record(failure) ||
+    failure.capability !== "vehicle-collision" ||
+    failure.property !== "collision_mask" ||
+    JSON.stringify(failure.expected) !== JSON.stringify(V1_EXPECTED_COLLISION_MASK) ||
+    JSON.stringify(failure.actual) !== JSON.stringify(V1_FAULT_COLLISION_MASK)
+  ) {
+    return { conformant: false, reason: "Recovery run did not observe the exact controlled collision-mask failure." };
+  }
+  if (secondResult !== true) return { conformant: false, reason: "Recovery run did not pass the second complete verification." };
+  return { conformant: true, reason: null };
+}
+
+export function evaluateV1Composition(
+  condition: V1Condition,
+  variant: V1Variant,
+  calls: readonly V1RecordedToolCall[],
+  selectedVerifier: unknown,
+  firstResult: boolean | null,
+  secondResult: boolean | null,
+  firstFailures: readonly unknown[],
+  irrelevantSkills: readonly string[],
+): V1Assessment {
+  const reasons: string[] = [];
+  if (selectedVerifier !== "vehicle") reasons.push("The first selected verifier was not vehicle.");
+  if (irrelevantSkills.length > 0) reasons.push(`Loaded irrelevant skill bodies: ${irrelevantSkills.join(", ")}.`);
+  if (variant === "recovery") {
+    const resultAssessment = evaluateV1VerifierResults(variant, firstResult, secondResult, firstFailures);
+    if (!resultAssessment.conformant && resultAssessment.reason !== null) reasons.push(resultAssessment.reason);
+
+    const firstVerify = calls.findIndex(isCompleteV1VerifierCall);
+    const repairs = calls.map((call, index) => call.name === "upbge_control" && call.isError === false && record(call.args) && call.args.operation === "set_collision_mask" ? index : -1).filter((index) => index >= 0);
+    const repair = repairs[0];
+    if (repairs.length !== 1) reasons.push("Recovery did not call the collision-mask mutation exactly once.");
+    if (repair !== undefined && (firstVerify < 0 || repair < firstVerify)) reasons.push("Recovery mutation ran before the observed vehicle failure.");
+    const repairCall = repair === undefined ? undefined : calls[repair];
+    if (repairCall !== undefined && (!record(repairCall.args) || JSON.stringify(repairCall.args.collision_mask) !== JSON.stringify(V1_EXPECTED_COLLISION_MASK))) {
+      reasons.push("Recovery did not supply the expected explicit collision mask.");
+    }
+
+    const recoveryLoads = calls.map((call, index) => {
+      if (condition === "graph" && graphCall(call, "load", "vehicle-collision-repair")) return index;
+      if (condition === "flat" && call.name === "read" && call.isError === false && record(call.args) && typeof call.args.path === "string" && /(?:^|[\\/])vehicle-collision-repair[\\/]SKILL\.md$/i.test(call.args.path)) return index;
+      return -1;
+    }).filter((index) => index >= 0);
+    if (recoveryLoads.length !== 1) reasons.push("Recovery prose was not loaded exactly once.");
+    if (repair !== undefined && recoveryLoads[0] !== undefined && recoveryLoads[0] > repair) reasons.push("Recovery prose was loaded only after the recovery mutation.");
+    if (condition === "graph" && firstVerify >= 0 && recoveryLoads[0] !== undefined && recoveryLoads[0] < firstVerify) reasons.push("Graph recovery prose was loaded eagerly before the observed failure.");
+  }
+  return { conformant: reasons.length === 0, reasons };
+}
+
+export function evaluateV1ExecutionBehavior(variant: V1Variant, calls: readonly V1RecordedToolCall[]): V1Assessment {
+  const reasons: string[] = [];
+  const repairs = calls.map((call, index) => call.name === "upbge_control" && call.isError === false && record(call.args) && call.args.operation === "set_collision_mask" ? index : -1).filter((index) => index >= 0);
+  const firstVerify = calls.findIndex(isCompleteV1VerifierCall);
+  if (variant === "normal" && repairs.length > 0) reasons.push("Normal run called an unnecessary collision-mask mutation.");
+  if (variant === "recovery" && repairs.some((index) => firstVerify < 0 || index < firstVerify)) reasons.push("Recovery run mutated the collision mask before observing the failure.");
+  if (repairs.length > 1) reasons.push("Run called the collision-mask mutation more than once.");
+  const failedCalls = calls.filter((call) => call.isError === true).length;
+  if (failedCalls > 0) reasons.push(`Run had ${failedCalls} failed tool call${failedCalls === 1 ? "" : "s"}.`);
+  return { conformant: reasons.length === 0, reasons };
 }
 
 export function createV1FlatSkillContents(source: string): string {

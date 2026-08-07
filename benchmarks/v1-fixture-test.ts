@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { V1_EXPECTED_COLLISION_GROUP, V1_EXPECTED_COLLISION_MASK } from "../src/v1-composition-benchmark.ts";
 import { buildV1FaultControlCode, buildV1ResetCode, executeV1UpbgeOperation } from "../src/v1-upbge-control.ts";
 import { sendUpbgeCode } from "../src/upbge-control.ts";
 
@@ -30,7 +31,14 @@ async function reset(): Promise<void> {
 
 async function executeFixture(): Promise<void> {
   for (const operation of EXECUTION_OPERATIONS) {
-    await executeV1UpbgeOperation({ operation, objectName: OBJECT });
+    await executeV1UpbgeOperation({
+      operation,
+      objectName: OBJECT,
+      ...(operation === "set_collision_layers" ? {
+        collisionGroup: V1_EXPECTED_COLLISION_GROUP,
+        collisionMask: V1_EXPECTED_COLLISION_MASK,
+      } : {}),
+    });
   }
 }
 
@@ -66,12 +74,12 @@ try {
     actual: [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false],
   }]);
   const before = await inspectPreservedState();
-  const repair = await executeV1UpbgeOperation({ operation: "set_collision_mask", objectName: OBJECT }) as { property?: unknown };
+  const repair = await executeV1UpbgeOperation({ operation: "set_collision_mask", objectName: OBJECT, collisionMask: V1_EXPECTED_COLLISION_MASK }) as { property?: unknown };
   assert.equal(repair.property, "collision_mask");
   assert.deepEqual(await inspectPreservedState(), before);
   assert.equal(verification(await executeV1UpbgeOperation({ operation: "verify_state", objectName: OBJECT, profile: "vehicle" })).ok, true);
 
-  await executeV1UpbgeOperation({ operation: "set_collision_layers", objectName: OBJECT });
+  await executeV1UpbgeOperation({ operation: "set_collision_layers", objectName: OBJECT, collisionGroup: V1_EXPECTED_COLLISION_GROUP, collisionMask: V1_EXPECTED_COLLISION_MASK });
   assert.equal(verification(await executeV1UpbgeOperation({ operation: "verify_state", objectName: OBJECT, profile: "vehicle" })).ok, true);
 
   const fault = await sendUpbgeCode(buildV1FaultControlCode(false)) as { injected?: unknown };

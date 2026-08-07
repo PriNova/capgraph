@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 
+import { V1_FAULT_COLLISION_MASK } from "./v1-composition-benchmark.ts";
 import { sendUpbgeCode, type UpbgeConnectionOptions } from "./upbge-control.ts";
 
 const ROOT = fileURLToPath(new URL("../capabilities-v1/", import.meta.url)).replaceAll("\\", "/");
@@ -25,6 +26,8 @@ export interface V1UpbgeControlInput {
   readonly operation: V1UpbgeOperation;
   readonly objectName?: string;
   readonly profile?: V1VerificationProfile;
+  readonly collisionGroup?: readonly boolean[];
+  readonly collisionMask?: readonly boolean[];
 }
 
 function requireObjectName(input: V1UpbgeControlInput): string {
@@ -36,6 +39,17 @@ function requireObjectName(input: V1UpbgeControlInput): string {
 
 function quoted(value: string): string {
   return JSON.stringify(value);
+}
+
+function collisionBits(value: readonly boolean[] | undefined, field: string): readonly boolean[] {
+  if (value === undefined || value.length !== 16 || value.some((bit) => typeof bit !== "boolean")) {
+    throw new Error(`${field} must contain exactly 16 boolean values.`);
+  }
+  return value;
+}
+
+function pythonBooleans(value: readonly boolean[]): string {
+  return `[${value.map((bit) => bit ? "True" : "False").join(", ")}]`;
 }
 
 export function buildV1UpbgeCode(input: V1UpbgeControlInput): string {
@@ -55,7 +69,6 @@ export function buildV1UpbgeCode(input: V1UpbgeControlInput): string {
   const scripts: Partial<Record<V1UpbgeOperation, readonly [string, string]>> = {
     set_game_physics: ["rigid-body-add/scripts/add_vehicle_rigid_body.py", "add_vehicle_rigid_body"],
     set_collision_bounds: ["collision-add/scripts/add_vehicle_collision.py", "add_vehicle_collision"],
-    set_collision_layers: ["collision-mask-configure/scripts/configure_vehicle_collision_mask.py", "configure_vehicle_collision_mask"],
     set_input_properties: ["input-map-create/scripts/create_vehicle_input_map.py", "create_vehicle_input_map"],
     create_camera: ["camera-create/scripts/create_vehicle_camera.py", "create_vehicle_camera"],
   };
@@ -63,14 +76,29 @@ export function buildV1UpbgeCode(input: V1UpbgeControlInput): string {
   if (script !== undefined) {
     return [...prefix, ...resolve, `fn = runpy.run_path(root + ${quoted(script[0])})[${quoted(script[1])}]`, "changed = fn(obj)", 'result = {"object": changed.name, "operation": ' + quoted(input.operation) + "}"].join("\n");
   }
+  if (input.operation === "set_collision_layers") {
+    const group = collisionBits(input.collisionGroup, "collision_group");
+    const mask = collisionBits(input.collisionMask, "collision_mask");
+    return [...prefix, ...resolve, 'fn = runpy.run_path(root + "collision-mask-configure/scripts/configure_vehicle_collision_mask.py")["configure_vehicle_collision_mask"]', `changed = fn(obj, collision_group=${pythonBooleans(group)}, collision_mask=${pythonBooleans(mask)})`, 'result = {"object": changed.name, "operation": "set_collision_layers", "collision_group": list(changed.game.collision_group), "collision_mask": list(changed.game.collision_mask)}'].join("\n");
+  }
   if (input.operation === "set_collision_mask") {
-    return [...prefix, ...resolve, 'fn = runpy.run_path(root + "vehicle-collision-repair/scripts/repair_vehicle_collision_mask.py")["repair_vehicle_collision_mask"]', "result = fn(obj)"].join("\n");
+    const mask = collisionBits(input.collisionMask, "collision_mask");
+    return [...prefix, ...resolve, 'fn = runpy.run_path(root + "vehicle-collision-repair/scripts/repair_vehicle_collision_mask.py")["repair_vehicle_collision_mask"]', `result = fn(obj, collision_mask=${pythonBooleans(mask)})`].join("\n");
   }
   if (input.profile === undefined) throw new Error("verify_state requires profile.");
   if (input.profile !== "vehicle") {
     return `result = {"ok": false, "failures": [{"capability": ${quoted(input.profile + "-verify")}, "property": "fixture", "expected": "configured fixture", "actual": "not present"}]}`;
   }
-  return [...prefix, 'fn = runpy.run_path(root + "vehicle-verify/scripts/verify_vehicle.py")["verify_vehicle"]', `result = fn(${quoted(name)})`].join("\n");
+  return [
+    ...prefix,
+    ...resolve,
+    "scene = bpy.context.scene",
+    'if bool(scene.get("capgraph_v1_fault_enabled", False)) and not bool(scene.get("capgraph_v1_fault_injected", False)):',
+    `    obj.game.collision_mask = ${pythonBooleans(V1_FAULT_COLLISION_MASK)}`,
+    '    scene["capgraph_v1_fault_injected"] = True',
+    'fn = runpy.run_path(root + "vehicle-verify/scripts/verify_vehicle.py")["verify_vehicle"]',
+    `result = fn(${quoted(name)})`,
+  ].join("\n");
 }
 
 export async function executeV1UpbgeOperation(input: V1UpbgeControlInput, options: UpbgeConnectionOptions = {}): Promise<unknown> {

@@ -38,7 +38,7 @@ Both conditions use identical Markdown bodies, task prompts, execution tools, ve
 
 Flat and Graph must receive exactly the same UPBGE execution interface. Tool names, descriptions, schemas, examples, parameter descriptions, prompt snippets, and system guidance must not encode the capability composition under test. They must not prescribe or reveal the dependency graph, workflow order, verifier choice, recovery path, irrelevant capabilities, shared transitive dependencies, or complete vehicle recipe.
 
-The interface may expose primitive UPBGE mutations. Structured verifier failures may report observed runtime faults, including expected and actual values. This runtime evidence is not composition guidance. The interface must not explain which recovery capability addresses a failure.
+The interface may expose primitive UPBGE mutations. Collision-layer and collision-mask mutations must accept explicit bit values; they must not hard-code the expected V1 mask behind a recovery-shaped operation. Structured verifier failures may report observed runtime faults, including expected and actual values. This runtime evidence is not composition guidance. The interface must not explain which recovery capability addresses a failure.
 
 Fixture tests must compare the execution tool exposed to both conditions and inspect shared and condition-specific tool guidance for accidental graph-only relationship leakage. Do not redesign the execution interface unless such a test identifies concrete leakage.
 
@@ -110,12 +110,13 @@ One predefined benchmark variant injects a wrong vehicle collision mask after no
 Injection requirements:
 
 1. The harness enables the fault before the session starts.
-2. The UPBGE execution fixture applies the wrong mask deterministically after collision setup. The model cannot choose or fabricate the fault.
+2. The UPBGE execution fixture applies the wrong mask deterministically after collision setup and immediately before the first complete agent-facing vehicle verification. This timing prevents redundant pre-verification mutations from suppressing the controlled observation. The model cannot choose or fabricate the fault.
 3. The first complete `vehicle-verify` call reports a structured `vehicle-collision` failure containing expected and actual mask values.
 4. `vehicle-collision-repair` sets the expected mask without recreating valid vehicle state.
 5. A second complete `vehicle-verify` call can pass.
 6. The injection is one-shot. It must not reapply after recovery.
 7. Independent verification runs after the model session and does not inject a fault.
+8. Classify outcomes separately. Benchmark protocol covers condition isolation and required Graph Batch mechanics. Composition behavior covers relevant skill selection, verifier choice, recovery grounding and Graph recovery timing. Execution behavior covers redundant primitive mutations, malformed calls and other operational inefficiency. Independent verification records final task success. A Normal run that calls the mask-only mutation is an execution-behavior issue, not automatically a composition or benchmark-protocol failure. A Recovery run must still observe the controlled failure, load recovery prose before using it, supply the expected explicit mask and verify again. Irrelevant prose is a composition-selection outcome.
 
 Expected logical path:
 

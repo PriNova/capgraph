@@ -6,8 +6,10 @@ import test from "node:test";
 import { expand, loadGraph, loadMany } from "../src/graph.ts";
 import { buildV1FaultControlCode, buildV1ResetCode, buildV1UpbgeCode, V1_UPBGE_OPERATIONS } from "../src/v1-upbge-control.ts";
 import {
-  createV1FlatSkillContents, evaluateV1Protocol, isCompleteV1VerifierCall,
-  V1_EXPECTED_ORDER, V1_NORMAL_LOADED_SKILLS, V1_SCHEDULE, V1_UNRELATED_SKILLS,
+  createV1FlatSkillContents, evaluateV1Composition, evaluateV1ExecutionBehavior,
+  evaluateV1Protocol, evaluateV1VerifierResults,
+  isCompleteV1VerificationCall, isCompleteV1VerifierCall, V1_EXPECTED_COLLISION_GROUP,
+  V1_EXPECTED_COLLISION_MASK, V1_EXPECTED_ORDER, V1_NORMAL_LOADED_SKILLS, V1_SCHEDULE, V1_UNRELATED_SKILLS,
   v1IrrelevantLoadedSkills, v1SessionToolNames,
 } from "../src/v1-composition-benchmark.ts";
 import { V1_UPBGE_PARAMETER_DESCRIPTIONS, V1_UPBGE_PROMPT_GUIDELINES, V1_UPBGE_PROMPT_SNIPPET, V1_UPBGE_TOOL_DESCRIPTION } from "../extensions/v1-upbge-control.ts";
@@ -79,11 +81,9 @@ test("condition read access cannot expose benchmark implementation", () => {
   assert.equal(isV1ReadAllowedForCondition("graph", generatedSkill), false);
   assert.equal(isV1ReadAllowedForCondition("flat", `${directory}/../benchmarks/v1-composition.ts`), false);
   assert.deepEqual(v1SessionToolNames("flat").filter((name) => name === "read" || name === "upbge_control"), v1SessionToolNames("graph").filter((name) => name === "read" || name === "upbge_control"));
-  assert.equal(evaluateV1Protocol("flat", "normal", [{ name: "read", args: { path: "package.json" }, isError: true }]).conformant, false);
-  assert.equal(evaluateV1Protocol("graph", "normal", [{ name: "read", args: { path: "anything" }, isError: false }]).conformant, false);
 });
 
-test("classifies only successful complete vehicle verifier calls", () => {
+test("classifies successful verifier selection separately from complete vehicle verification", () => {
   assert.equal(isCompleteV1VerifierCall({
     name: "upbge_control",
     args: { operation: "verify_state", profile: "vehicle" },
@@ -94,17 +94,58 @@ test("classifies only successful complete vehicle verifier calls", () => {
     args: { operation: "verify_state", object_name: "CapgraphVehicle", profile: "vehicle" },
     isError: false,
   }), true);
-  assert.equal(isCompleteV1VerifierCall({
+  const alternative = {
     name: "upbge_control",
     args: { operation: "verify_state", object_name: "CapgraphVehicle", profile: "static_scene" },
     isError: false,
-  }), false);
+  } as const;
+  assert.equal(isCompleteV1VerificationCall(alternative), true);
+  assert.equal(isCompleteV1VerifierCall(alternative), false);
 });
 
 test("classifies recovery prose by task variant", () => {
   const loaded = ["vehicle-create", "vehicle-verify", "vehicle-collision-repair", "light-create", "light-create"];
   assert.deepEqual(v1IrrelevantLoadedSkills("normal", loaded), ["vehicle-collision-repair", "light-create"]);
   assert.deepEqual(v1IrrelevantLoadedSkills("recovery", loaded), ["light-create"]);
+});
+
+test("separates benchmark protocol, composition, and execution behavior", () => {
+  const expand = { name: "skill_graph", args: { operation: "expand", skill: "vehicle-create" }, isError: false } as const;
+  const batch = { name: "skill_graph", args: { operation: "load_many", skill: "vehicle-create" }, isError: false } as const;
+  const verify = { name: "upbge_control", args: { operation: "verify_state", object_name: "CapgraphVehicle", profile: "vehicle" }, isError: false } as const;
+  const loadRecovery = { name: "skill_graph", args: { operation: "load", skill: "vehicle-collision-repair" }, isError: false } as const;
+  const repair = { name: "upbge_control", args: { operation: "set_collision_mask", object_name: "CapgraphVehicle", collision_mask: V1_EXPECTED_COLLISION_MASK }, isError: false } as const;
+  const flatRecoveryRead = { name: "read", args: { path: "C:/fixtures/vehicle-collision-repair/SKILL.md" }, isError: false } as const;
+  const controlledFailure = [{ capability: "vehicle-collision", property: "collision_mask", expected: V1_EXPECTED_COLLISION_MASK, actual: [true, ...Array<boolean>(15).fill(false)] }];
+
+  const redundantNormal = [expand, batch, repair, verify];
+  assert.deepEqual(evaluateV1Protocol("graph", "normal", redundantNormal), { conformant: true, reason: null });
+  assert.deepEqual(evaluateV1Composition("graph", "normal", redundantNormal, "vehicle", true, null, [], []), { conformant: true, reasons: [] });
+  assert.equal(evaluateV1ExecutionBehavior("normal", redundantNormal).conformant, false);
+
+  const graphRecovery = [expand, batch, verify, loadRecovery, repair, verify];
+  assert.deepEqual(evaluateV1Protocol("graph", "recovery", graphRecovery), { conformant: true, reason: null });
+  assert.deepEqual(evaluateV1Composition("graph", "recovery", graphRecovery, "vehicle", false, true, controlledFailure, []), { conformant: true, reasons: [] });
+  assert.deepEqual(evaluateV1ExecutionBehavior("recovery", graphRecovery), { conformant: true, reasons: [] });
+
+  assert.equal(evaluateV1Composition("graph", "recovery", [expand, batch, verify, repair, verify], "vehicle", false, true, controlledFailure, []).conformant, false);
+  assert.equal(evaluateV1Composition("graph", "recovery", [expand, batch, loadRecovery, verify, repair, verify], "vehicle", false, true, controlledFailure, []).conformant, false);
+  assert.equal(evaluateV1Composition("flat", "recovery", [flatRecoveryRead, verify, repair, verify], "vehicle", false, true, controlledFailure, []).conformant, true);
+  assert.equal(evaluateV1Composition("flat", "normal", [verify], "vehicle", true, null, [], ["light-create"]).conformant, false);
+});
+
+test("recovery protocol requires the exact observed fault and passing second verification", () => {
+  const controlledFailure = [{
+    capability: "vehicle-collision",
+    property: "collision_mask",
+    expected: V1_EXPECTED_COLLISION_MASK,
+    actual: [true, ...Array<boolean>(15).fill(false)],
+  }];
+  assert.deepEqual(evaluateV1VerifierResults("recovery", false, true, controlledFailure), { conformant: true, reason: null });
+  assert.equal(evaluateV1VerifierResults("recovery", true, null, []).conformant, false);
+  assert.equal(evaluateV1VerifierResults("recovery", false, true, [{ ...controlledFailure[0], property: "mass" }]).conformant, false);
+  assert.equal(evaluateV1VerifierResults("recovery", false, false, controlledFailure).conformant, false);
+  assert.deepEqual(evaluateV1VerifierResults("normal", true, null), { conformant: true, reason: null });
 });
 
 test("fixed wrappers require an exact subject for status and verification", () => {
@@ -121,10 +162,29 @@ test("fixed wrappers require an exact subject for status and verification", () =
   assert.match(status, /bpy\.data\.objects\.get\("CapgraphVehicle"\)/);
 });
 
-test("fixed wrappers expose no model-authored code and verification does not inject faults", () => {
+test("collision mutation wrappers require explicit primitive values", () => {
+  assert.throws(
+    () => buildV1UpbgeCode({ operation: "set_collision_layers", objectName: "CapgraphVehicle" }),
+    /collision_group must contain exactly 16 boolean values/,
+  );
+  assert.throws(
+    () => buildV1UpbgeCode({ operation: "set_collision_mask", objectName: "CapgraphVehicle" }),
+    /collision_mask must contain exactly 16 boolean values/,
+  );
+  const customMask = [false, true, ...Array<boolean>(14).fill(false)];
+  const layers = buildV1UpbgeCode({ operation: "set_collision_layers", objectName: "CapgraphVehicle", collisionGroup: V1_EXPECTED_COLLISION_GROUP, collisionMask: V1_EXPECTED_COLLISION_MASK });
+  assert.match(layers, /collision_group=\[True, False,/);
+  const mutation = buildV1UpbgeCode({ operation: "set_collision_mask", objectName: "CapgraphVehicle", collisionMask: customMask });
+  assert.match(mutation, /collision_mask=\[False, True,/);
+  assert.doesNotMatch(mutation, /EXPECTED_MASK/);
+});
+
+test("agent verification applies only the enabled one-shot fixture hook", () => {
   const verify = buildV1UpbgeCode({ operation: "verify_state", objectName: "CapgraphVehicle", profile: "vehicle" });
   assert.match(verify, /verify_vehicle\.py/);
-  assert.doesNotMatch(verify, /fault_enabled|fault_injected/);
+  assert.match(verify, /fault_enabled/);
+  assert.match(verify, /not bool\(scene\.get\("capgraph_v1_fault_injected"/);
+  assert.match(verify, /scene\["capgraph_v1_fault_injected"\] = True/);
   assert.match(buildV1FaultControlCode(true, true), /fault_injected.*False/);
   assert.doesNotMatch(buildV1FaultControlCode(false), /scene\["capgraph_v1_fault_injected"\]\s*=\s*False/);
   const reset = buildV1ResetCode();
@@ -132,12 +192,13 @@ test("fixed wrappers expose no model-authored code and verification does not inj
   assert.match(reset, /CapgraphVehicleMesh\./);
 });
 
-test("fault and recovery scripts enforce one-shot mask-only behavior", async () => {
-  const inject = await readFile(`${directory}/collision-mask-configure/scripts/configure_vehicle_collision_mask.py`, "utf8");
+test("collision and recovery scripts perform only explicit primitive mutations", async () => {
+  const configure = await readFile(`${directory}/collision-mask-configure/scripts/configure_vehicle_collision_mask.py`, "utf8");
   const repair = await readFile(`${directory}/vehicle-collision-repair/scripts/repair_vehicle_collision_mask.py`, "utf8");
   const verifier = await readFile(`${directory}/vehicle-verify/scripts/verify_vehicle.py`, "utf8");
-  assert.match(inject, /not bool\(scene\.get\("capgraph_v1_fault_injected"/);
-  assert.match(inject, /scene\["capgraph_v1_fault_injected"\] = True/);
+  assert.doesNotMatch(configure, /capgraph_v1_fault/);
+  assert.match(configure, /collision_group: Sequence\[bool\]/);
+  assert.match(configure, /collision_mask: Sequence\[bool\]/);
   assert.equal((repair.match(/obj\.game\.[a-z_]+\s*=/g) ?? []).join(""), "obj.game.collision_mask =");
   for (const key of ["capability", "property", "expected", "actual"]) assert.match(verifier, new RegExp(`"${key}"`));
   assert.match(verifier, /"vehicle-collision", "collision_mask", EXPECTED_MASK/);

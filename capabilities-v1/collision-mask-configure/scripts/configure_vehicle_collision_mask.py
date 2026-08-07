@@ -1,17 +1,22 @@
-"""Configure frozen V1 collision bits and apply the controlled fault once."""
+"""Configure explicit collision group and mask bits on an UPBGE object."""
+
+from collections.abc import Sequence
 
 import bpy
 
-EXPECTED_GROUP = (True,) + (False,) * 15
-EXPECTED_MASK = (True, True) + (False,) * 14
-FAULT_MASK = (True, False) + (False,) * 14
+
+def _bits(value: Sequence[bool], name: str) -> tuple[bool, ...]:
+    if len(value) != 16 or any(type(bit) is not bool for bit in value):
+        raise ValueError(f"{name} must contain exactly 16 boolean values")
+    return tuple(value)
 
 
-def configure_vehicle_collision_mask(obj: bpy.types.Object) -> bpy.types.Object:
-    scene = bpy.context.scene
-    obj.game.collision_group = EXPECTED_GROUP
-    obj.game.collision_mask = EXPECTED_MASK
-    if bool(scene.get("capgraph_v1_fault_enabled", False)) and not bool(scene.get("capgraph_v1_fault_injected", False)):
-        obj.game.collision_mask = FAULT_MASK
-        scene["capgraph_v1_fault_injected"] = True
+def configure_vehicle_collision_mask(
+    obj: bpy.types.Object,
+    *,
+    collision_group: Sequence[bool],
+    collision_mask: Sequence[bool],
+) -> bpy.types.Object:
+    obj.game.collision_group = _bits(collision_group, "collision_group")
+    obj.game.collision_mask = _bits(collision_mask, "collision_mask")
     return obj

@@ -769,11 +769,11 @@ Completed:
 12. Registered `inspect(skill)` and `expand(skill)` through the pi `skill_graph` custom tool.
 13. Made graph reads abort-aware, rejected escaping capability paths, enforced pi output limits, and returned execution failures as pi tool errors.
 14. Validated local package loading and both tool operations in pi without connecting UPBGE.
+15. Added the `create_physics_object` workflow contract and an automated pi SDK integration test that runs without a model, network access, package installation, or persistent sessions.
 
 Next tasks:
 
-1. Create the `create_physics_object` test workflow.
-2. Only after that, connect UPBGE execution and verification.
+1. Connect UPBGE execution and verification.
 
 Do not begin with a separate CLI, intent search, self-learning, or a database.
 

@@ -16,7 +16,8 @@
   },
   "scripts": {
     "check": "tsc --noEmit",
-    "test": "node --test tests/*.test.ts"
+    "test": "node --test tests/*.test.ts",
+    "test:workflow": "node --test tests/workflow.test.ts"
   },
   "dependencies": {
     "yaml": "^2.9.0"

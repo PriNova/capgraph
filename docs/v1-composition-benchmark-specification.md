@@ -1,6 +1,6 @@
 # V1 Composition Benchmark Specification
 
-Status: design only. The V1 capability domain and recovery injection are not implemented.
+Status: completed and frozen. The implemented benchmark and formal results are recorded in [V1 Composition Benchmark Report](v1-composition-benchmark-report.md).
 
 ## 1. Purpose
 
@@ -42,7 +42,7 @@ The interface may expose primitive UPBGE mutations. Collision-layer and collisio
 
 Fixture tests must compare the execution tool exposed to both conditions and inspect shared and condition-specific tool guidance for accidental graph-only relationship leakage. Do not redesign the execution interface unless such a test identifies concrete leakage.
 
-## 3. Proposed Relevant Topology
+## 3. Frozen Relevant Topology
 
 ```text
 vehicle-create
@@ -177,4 +177,4 @@ Fixture tests must prove:
 
 ## 10. Stop Boundary
 
-V0.1 is complete and its Graph Batch policy is frozen. V1 implementation should add only the specified capability fixtures, deterministic UPBGE operations, verifier, one-shot fault injection, recovery operation, tests, runner, and report. No semantic search, database, index, cache layer, agent orchestrator, or self-modifying graph is required.
+V0.1 and V1 are complete, and their Graph Batch policy and benchmark designs are frozen. V1 added only the specified capability fixtures, deterministic UPBGE operations, verifier, one-shot fault injection, recovery operation, tests, runner, and report. No semantic search, database, index, cache layer, agent orchestrator, or self-modifying graph was added or is required by this specification.

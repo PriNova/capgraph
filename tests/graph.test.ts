@@ -80,6 +80,15 @@ test("loads the project graph keyed by canonical skill names", async () => {
   ]);
 });
 
+test("honors an aborted graph load", async () => {
+  const capabilitiesPath = fileURLToPath(new URL("../capabilities/", import.meta.url));
+  const controller = new AbortController();
+  const reason = new Error("Test cancellation.");
+  controller.abort(reason);
+
+  await assert.rejects(loadGraph(capabilitiesPath, { signal: controller.signal }), reason);
+});
+
 test("inspect returns exactly one node without prose or internal paths", () => {
   const graph = buildGraph([
     parseSkill({

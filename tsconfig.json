@@ -12,7 +12,8 @@
     "verbatimModuleSyntax": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
+    "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"]
+  "include": ["extensions/**/*.ts", "src/**/*.ts", "tests/**/*.ts"]
 }

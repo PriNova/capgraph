@@ -1,5 +1,5 @@
-import { readFile, readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { readFile, readdir, realpath } from "node:fs/promises";
+import { isAbsolute, join, relative, sep } from "node:path";
 
 import { parse as parseYaml } from "yaml";
 
@@ -30,6 +30,10 @@ const RELATION_METADATA_KEYS = {
 } as const satisfies Readonly<Record<GraphRelation, string>>;
 const CAPGRAPH_METADATA_KEYS: ReadonlySet<string> = new Set(Object.values(RELATION_METADATA_KEYS));
 
+export interface GraphReadOptions {
+  readonly signal?: AbortSignal;
+}
+
 export class GraphValidationError extends Error {
   constructor(message: string) {
     super(message);
@@ -39,6 +43,23 @@ export class GraphValidationError extends Error {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  signal?.throwIfAborted();
+}
+
+function assertPathInside(rootPath: string, candidatePath: string): void {
+  const pathFromRoot = relative(rootPath, candidatePath);
+  if (
+    pathFromRoot === ".." ||
+    pathFromRoot.startsWith(`..${sep}`) ||
+    isAbsolute(pathFromRoot)
+  ) {
+    throw new GraphValidationError(
+      `Capability skill path "${candidatePath}" escapes capabilities directory "${rootPath}".`,
+    );
+  }
 }
 
 function extractFrontmatter(contents: string, filePath: string): unknown {
@@ -257,10 +278,20 @@ function extractSkillBody(contents: string, filePath: string): string {
   return contents.slice(match[0].length).trim();
 }
 
-async function readSkillBody(node: SkillNode): Promise<string> {
+async function readSkillBody(
+  node: SkillNode,
+  options: GraphReadOptions,
+): Promise<string> {
   try {
-    return extractSkillBody(await readFile(node.filePath, "utf8"), node.filePath);
+    throwIfAborted(options.signal);
+    const contents = await readFile(node.filePath, {
+      encoding: "utf8",
+      signal: options.signal,
+    });
+    throwIfAborted(options.signal);
+    return extractSkillBody(contents, node.filePath);
   } catch (error: unknown) {
+    throwIfAborted(options.signal);
     if (error instanceof GraphValidationError) {
       throw error;
     }
@@ -269,7 +300,12 @@ async function readSkillBody(node: SkillNode): Promise<string> {
   }
 }
 
-export async function expand(graph: SkillGraph, root: SkillName): Promise<ExpandResult> {
+export async function expand(
+  graph: SkillGraph,
+  root: SkillName,
+  options: GraphReadOptions = {},
+): Promise<ExpandResult> {
+  throwIfAborted(options.signal);
   getNode(graph, root);
   validateRequiresAcyclic(graph, root);
 
@@ -346,7 +382,7 @@ export async function expand(graph: SkillGraph, root: SkillName): Promise<Expand
       return {
         skill,
         depth,
-        content: await readSkillBody(getNode(graph, skill)),
+        content: await readSkillBody(getNode(graph, skill), options),
       };
     }),
   );
@@ -368,8 +404,14 @@ export function buildGraph(nodes: readonly SkillNode[]): SkillGraph {
   return graph;
 }
 
-export async function loadGraph(capabilitiesDirectory: string): Promise<SkillGraph> {
-  const entries = await readdir(capabilitiesDirectory, { withFileTypes: true });
+export async function loadGraph(
+  capabilitiesDirectory: string,
+  options: GraphReadOptions = {},
+): Promise<SkillGraph> {
+  throwIfAborted(options.signal);
+  const rootPath = await realpath(capabilitiesDirectory);
+  const entries = await readdir(rootPath, { withFileTypes: true });
+  throwIfAborted(options.signal);
   const skillDirectories = entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
@@ -377,13 +419,27 @@ export async function loadGraph(capabilitiesDirectory: string): Promise<SkillGra
 
   const definitions = await Promise.all(
     skillDirectories.map(async (skillDirectoryName) => {
-      const filePath = join(capabilitiesDirectory, skillDirectoryName, "SKILL.md");
+      const requestedFilePath = join(rootPath, skillDirectoryName, "SKILL.md");
+      let filePath: string;
       let contents: string;
       try {
-        contents = await readFile(filePath, "utf8");
+        throwIfAborted(options.signal);
+        filePath = await realpath(requestedFilePath);
+        assertPathInside(rootPath, filePath);
+        contents = await readFile(filePath, {
+          encoding: "utf8",
+          signal: options.signal,
+        });
+        throwIfAborted(options.signal);
       } catch (error: unknown) {
+        throwIfAborted(options.signal);
+        if (error instanceof GraphValidationError) {
+          throw error;
+        }
         const message = error instanceof Error ? error.message : String(error);
-        throw new GraphValidationError(`Cannot read capability skill "${filePath}": ${message}`);
+        throw new GraphValidationError(
+          `Cannot read capability skill "${requestedFilePath}": ${message}`,
+        );
       }
       return parseCapabilitySkill(contents, skillDirectoryName, filePath);
     }),

@@ -765,15 +765,15 @@ Completed:
 8. Implemented `inspect(skill)` with clear unknown-skill errors and metadata-only output.
 9. Implemented `expand(skill)` with deterministic dependency-first ordering, shortest-depth metadata, explicit edges, deduplication, selected skill bodies without frontmatter, terminal verification and recovery inclusion, and reachable `requires` cycle validation.
 10. Added unit tests that fix the exact inspection and expansion output contracts, including shared dependencies and non-traversal of outgoing terminal relations.
+11. Made the repository a loadable pi package with a package manifest, required peer dependencies, and an extension entry point.
+12. Registered `inspect(skill)` and `expand(skill)` through the pi `skill_graph` custom tool.
+13. Made graph reads abort-aware, rejected escaping capability paths, enforced pi output limits, and returned execution failures as pi tool errors.
+14. Validated local package loading and both tool operations in pi without connecting UPBGE.
 
 Next tasks:
 
-1. Make the repository a loadable pi package by adding the package manifest, required peer dependencies, and extension entry point.
-2. Register `inspect(skill)` and `expand(skill)` through a pi `skill_graph` custom tool.
-3. Make tool execution abort-aware, enforce output limits, and return graph failures as pi tool errors.
-4. Validate the extension and skill files in pi without connecting UPBGE.
-5. Create the `create_physics_object` test workflow.
-6. Only after that, connect UPBGE execution and verification.
+1. Create the `create_physics_object` test workflow.
+2. Only after that, connect UPBGE execution and verification.
 
 Do not begin with a separate CLI, intent search, self-learning, or a database.
 

@@ -758,7 +758,7 @@ When a new problem layer appears, record it under `docs/open-questions.md` rathe
 
 The technical V0 vertical slice is complete and marked by the Git tag `v0-vertical-slice`. The implementation covers the known-root graph workflow, pi integration, controlled UPBGE execution, verification, automated tests, and a successful live tool-level run.
 
-The V0 research evaluation remains open until the flat-skills versus Skill Graph benchmark is run and recorded. Natural-language root resolution and general unrestricted UPBGE control remain deferred beyond V0.
+The V0 pilot benchmark is defined in [V0 Flat Skills vs Skill Graph Pilot Benchmark](v0-pilot-benchmark-specification.md). The V0 research evaluation remains open until its five flat-skills and five Skill Graph runs are executed and recorded. Natural-language root resolution and general unrestricted UPBGE control remain deferred beyond V0.
 
 ### Completed:
 
@@ -780,10 +780,12 @@ The V0 research evaluation remains open until the flat-skills versus Skill Graph
 16. Validated the official add-on's direct TCP bridge against UPBGE 5.3.0 Alpha, including all four capability scripts and a successful verifier result.
 17. Added the `upbge_control` pi tool with fixed operation wrappers, validated object names, abort and timeout handling, protocol limits, response validation, and mock TCP tests.
 18. Completed the live tool-level workflow through the registered pi tool: status, cube creation, rigid-body configuration, collision configuration, and successful verification.
+19. Defined the controlled V0 pilot benchmark with five flat-skills runs, five Skill Graph runs, independent UPBGE verification, fixed run ordering, failure classification, and required measurements.
+20. Implemented the pi SDK pilot runner with isolated flat and graph resources, generated flat fixtures, a manual UPBGE reset gate, event and usage collection, independent verification, limits, reruns for infrastructure failures, and JSON Lines output.
 
 ### Next tasks:
 
-1. Define and record the first flat-skills versus graph-skills benchmark run.
+1. Execute the ten specified pilot runs and record the report.
 
 Do not begin with a separate CLI, intent search, self-learning, or a database.
 

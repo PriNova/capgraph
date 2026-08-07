@@ -81,6 +81,18 @@ npm run test:workflow
 
 The current workflow test loads the pi extension and validates graph inspection and expansion without a model, network connection, persistent session, or UPBGE process.
 
+## Pilot Benchmark Runner
+
+Run a selected part of the controlled flat-skills versus Skill Graph pilot:
+
+```bash
+npm run benchmark:pilot -- --model <provider/model> --thinking medium --start 1 --end 2
+```
+
+The runner uses a manual UPBGE reset gate. Before each model run, it confirms that the bridge is available and `CapgraphBenchmarkCube` does not exist, then waits for confirmation. It never removes or resets UPBGE objects. Raw attempt records are written as JSON Lines under `benchmarks/results/` unless `--output <path>` is supplied.
+
+See [V0 pilot benchmark specification](docs/v0-pilot-benchmark-specification.md) for the fixed ten-run schedule and measurement contract.
+
 ## pi Integration
 
 Load the repository as a local pi package:
@@ -118,6 +130,7 @@ The direct transport and complete create/configure/verify workflow have been val
 ## Documentation
 
 - [Project handoff](docs/skill-graph-project-handoff.md)
+- [V0 pilot benchmark specification](docs/v0-pilot-benchmark-specification.md)
 - [Pi compatibility contract](docs/pi-compatibility-contract.md)
 - [UPBGE control transport](docs/upbge-control-transport.md)
 - [Open questions](docs/open-questions.md)

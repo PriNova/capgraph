@@ -24,9 +24,9 @@ The repository must be usable as a pi package.
 
 `package.json` must:
 
-- include the `pi-package` keyword
+- include the `pi-package` keyword as a project convention for package discoverability, although pi does not require this keyword to load a package
 - declare the Skill Graph extension under `pi.extensions`
-- list pi-provided extension packages as peer dependencies
+- list each imported pi-bundled core package in `peerDependencies` with a `"*"` range and not bundle it; this includes `@earendil-works/pi-ai`, `@earendil-works/pi-agent-core`, `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and `typebox` when imported
 - keep non-pi runtime packages in `dependencies` only when required
 
 The package must support local development through:
@@ -129,11 +129,14 @@ For V0, expansion starts from a known root capability.
 `expand(id)` must:
 
 1. include the root node,
-2. recursively follow `requires`,
-3. include nodes referenced by `verify_with`,
-4. include nodes referenced by `recover_with`,
-5. detect dependency cycles,
-6. produce a stable order for repeatable tests.
+2. recursively follow `requires` from the root to build the required dependency closure,
+3. include direct `verify_with` references from the root and every node in that dependency closure,
+4. include direct `recover_with` references from the root and every node in that dependency closure,
+5. not traverse outgoing relations from the added verification and recovery nodes,
+6. detect `requires` cycles reachable from the requested root,
+7. produce a stable order for repeatable tests.
+
+Only `requires` is recursive in V0. `verify_with` and `recover_with` are terminal associations for expansion. Cycles that use only verification or recovery edges are therefore not dependency cycles. Unrelated cycles outside the requested root's `requires` closure must not make that expansion fail. Missing references selected by steps 2–4 remain errors.
 
 V0 does not infer the root capability from natural-language intent.
 
@@ -141,7 +144,7 @@ V0 does not infer the root capability from natural-language intent.
 
 Pi extensions and skills can execute code with user permissions. Therefore:
 
-- project-local integration runs only after pi trusts the project
+- automatically discovered project-local extensions, project package resources, and project settings run only after pi trusts the project; an extension explicitly supplied with CLI `-e`, including `pi -e .`, is user-selected and loads before the project trust decision
 - graph expansion does not execute capability scripts
 - execution requires a separate explicit agent or tool action
 - discovered capability paths must remain inside the package root

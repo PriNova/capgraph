@@ -29,13 +29,17 @@ Separate three layers:
 ### Graph metadata
 Machine-readable structure describing relationships between capabilities.
 
-Examples:
+V0 relations:
 - `requires`
-- `decomposes_into`
-- `enables`
 - `verify_with`
 - `recover_with`
-- later possibly `conflicts_with`, `compatible_with`, cost/reliability metadata
+
+Possible later relations, not supported in V0:
+- `decomposes_into`
+- `enables`
+- `conflicts_with`
+- `compatible_with`
+- cost and reliability metadata
 
 ### Skill prose
 `SKILL.md` contains model-facing operational knowledge:
@@ -707,18 +711,26 @@ When a new problem layer appears, record it under `docs/open-questions.md` rathe
 
 ---
 
-## 23. Recommended First Tasks for the Coding Agent
+## 23. Current State and Next Tasks
 
-1. Create the pi package skeleton.
-2. Define the minimal standard-compliant `metadata.capgraph-*` convention.
-3. Implement TypeScript loading that scans capability `SKILL.md` frontmatter and builds an in-memory graph.
-4. Implement `inspect(id)`.
-5. Implement recursive `expand(id)` with cycle detection and deterministic ordering.
-6. Register both operations through a pi `skill_graph` custom tool.
-7. Add 5 initial UPBGE capability skills under `capabilities/`.
-8. Validate the extension and skill files in pi without connecting UPBGE.
-9. Create one test workflow: `create_physics_object`.
-10. Only after that, connect UPBGE execution and verification.
+Completed:
+
+1. Created the Node.js and TypeScript package skeleton.
+2. Defined the standard-compliant `metadata.capgraph-*` convention.
+3. Implemented TypeScript loading and validation for capability `SKILL.md` frontmatter.
+4. Added five initial UPBGE capability skills under `capabilities/`.
+5. Added unit tests for loading, metadata validation, references, and duplicate IDs.
+6. Implemented reachable `requires` cycle validation and tests that permit verification and recovery cycles and ignore unrelated dependency cycles.
+
+Next tasks:
+
+1. Make the repository a loadable pi package by adding the package manifest, required peer dependencies, and extension entry point.
+2. Implement `inspect(id)`.
+3. Implement `expand(id)` with the V0 traversal rules and deterministic ordering, using the reachable `requires` cycle validation.
+4. Register both operations through a pi `skill_graph` custom tool.
+5. Validate the extension and skill files in pi without connecting UPBGE.
+6. Create the `create_physics_object` test workflow.
+7. Only after that, connect UPBGE execution and verification.
 
 Do not begin with a separate CLI, intent search, self-learning, or a database.
 
@@ -742,7 +754,7 @@ physics_object.create
  ├─ requires → collision.add
  └─ verify_with → physics_object.verify
 
-Each capability declares these outgoing relationships through standard-compliant string values under `metadata` in its `SKILL.md`. The pi extension builds the graph index outside model context, then reads only the selected full `SKILL.md` files and returns their content through the `skill_graph` tool result.
+Each capability declares these outgoing relationships through standard-compliant string values under `metadata` in its `SKILL.md`. Expansion recursively follows `requires` from the root, then includes direct verification and recovery references from that dependency closure. It does not traverse outgoing relations from those added verification and recovery nodes. The pi extension builds the graph index outside model context, then reads only the selected full `SKILL.md` files and returns their content through the `skill_graph` tool result.
 
 Agent executes task.
 

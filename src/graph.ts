@@ -210,7 +210,10 @@ function validateReferences(graph: CapabilityGraph): void {
   }
 }
 
-function validateAcyclic(graph: CapabilityGraph): void {
+export function validateRequiresAcyclic(
+  graph: CapabilityGraph,
+  rootId: CapabilityId,
+): void {
   const states = new Map<CapabilityId, "visiting" | "visited">();
   const path: CapabilityId[] = [];
 
@@ -222,29 +225,24 @@ function validateAcyclic(graph: CapabilityGraph): void {
     if (state === "visiting") {
       const cycleStart = path.indexOf(nodeId);
       const cycle = [...path.slice(cycleStart), nodeId];
-      throw new GraphValidationError(`Cycle detected: ${cycle.join(" -> ")}.`);
+      throw new GraphValidationError(`Requires cycle detected: ${cycle.join(" -> ")}.`);
+    }
+
+    const node = graph[nodeId];
+    if (node === undefined) {
+      throw new GraphValidationError(`Unknown node "${nodeId}" during requires cycle validation.`);
     }
 
     states.set(nodeId, "visiting");
     path.push(nodeId);
-
-    const node = graph[nodeId];
-    if (node === undefined) {
-      throw new GraphValidationError(`Unknown node "${nodeId}" during cycle validation.`);
+    for (const target of node.requires) {
+      visit(target);
     }
-    for (const relation of GRAPH_RELATIONS) {
-      for (const target of node[relation]) {
-        visit(target);
-      }
-    }
-
     path.pop();
     states.set(nodeId, "visited");
   }
 
-  for (const nodeId of Object.keys(graph)) {
-    visit(nodeId);
-  }
+  visit(rootId);
 }
 
 export function buildGraph(definitions: readonly CapabilityDefinition[]): CapabilityGraph {
@@ -258,7 +256,6 @@ export function buildGraph(definitions: readonly CapabilityDefinition[]): Capabi
   }
 
   validateReferences(graph);
-  validateAcyclic(graph);
   return graph;
 }
 

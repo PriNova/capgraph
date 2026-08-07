@@ -8,6 +8,7 @@ import {
   GraphValidationError,
   loadGraph,
   parseCapabilitySkill,
+  validateRequiresAcyclic,
 } from "../src/graph.ts";
 
 interface SkillOptions {
@@ -143,7 +144,28 @@ test("rejects duplicate capability IDs", () => {
   );
 });
 
-test("rejects cycles across graph relations", () => {
+test("rejects reachable requires cycles", () => {
+  const create = parseSkill({
+    name: "workflow-create",
+    id: "workflow.create",
+    requires: "workflow.prepare",
+  });
+  const prepare = parseSkill({
+    name: "workflow-prepare",
+    id: "workflow.prepare",
+    requires: "workflow.create",
+  });
+  const graph = buildGraph([create, prepare]);
+
+  assert.throws(
+    () => validateRequiresAcyclic(graph, "workflow.create"),
+    new GraphValidationError(
+      "Requires cycle detected: workflow.create -> workflow.prepare -> workflow.create.",
+    ),
+  );
+});
+
+test("allows cycles through verification and recovery relations", () => {
   const create = parseSkill({
     name: "workflow-create",
     id: "workflow.create",
@@ -154,11 +176,30 @@ test("rejects cycles across graph relations", () => {
     id: "workflow.verify",
     recoverWith: "workflow.create",
   });
+  const graph = buildGraph([create, verify]);
 
+  assert.doesNotThrow(() => validateRequiresAcyclic(graph, "workflow.create"));
+});
+
+test("ignores requires cycles outside the requested root closure", () => {
+  const root = parseSkill({ name: "workflow-create", id: "workflow.create" });
+  const first = parseSkill({
+    name: "unrelated-first",
+    id: "unrelated.first",
+    requires: "unrelated.second",
+  });
+  const second = parseSkill({
+    name: "unrelated-second",
+    id: "unrelated.second",
+    requires: "unrelated.first",
+  });
+  const graph = buildGraph([root, first, second]);
+
+  assert.doesNotThrow(() => validateRequiresAcyclic(graph, "workflow.create"));
   assert.throws(
-    () => buildGraph([create, verify]),
+    () => validateRequiresAcyclic(graph, "unrelated.first"),
     new GraphValidationError(
-      "Cycle detected: workflow.create -> workflow.verify -> workflow.create.",
+      "Requires cycle detected: unrelated.first -> unrelated.second -> unrelated.first.",
     ),
   );
 });

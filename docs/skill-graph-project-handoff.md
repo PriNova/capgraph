@@ -754,7 +754,13 @@ When a new problem layer appears, record it under `docs/open-questions.md` rathe
 
 ## 23. Current State and Next Tasks
 
-Completed:
+### V0 Status
+
+The technical V0 vertical slice is complete and marked by the Git tag `v0-vertical-slice`. The implementation covers the known-root graph workflow, pi integration, controlled UPBGE execution, verification, automated tests, and a successful live tool-level run.
+
+The V0 research evaluation remains open until the flat-skills versus Skill Graph benchmark is run and recorded. Natural-language root resolution and general unrestricted UPBGE control remain deferred beyond V0.
+
+### Completed:
 
 1. Created the Node.js and TypeScript package skeleton.
 2. Defined the standard-compliant `metadata.capgraph-*` convention.
@@ -775,7 +781,7 @@ Completed:
 17. Added the `upbge_control` pi tool with fixed operation wrappers, validated object names, abort and timeout handling, protocol limits, response validation, and mock TCP tests.
 18. Completed the live tool-level workflow through the registered pi tool: status, cube creation, rigid-body configuration, collision configuration, and successful verification.
 
-Next tasks:
+### Next tasks:
 
 1. Define and record the first flat-skills versus graph-skills benchmark run.
 

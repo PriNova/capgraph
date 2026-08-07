@@ -6,6 +6,12 @@ The project tests whether explicit skill dependencies, verification, recovery, a
 
 UPBGE is the first test domain. The graph implementation remains domain-independent.
 
+## V0 Status
+
+The technical V0 vertical slice is complete and marked by the Git tag `v0-vertical-slice`. It includes graph expansion from a known root capability, pi tool integration, direct UPBGE editor control, capability-script execution, verification, automated tests, and a successful live workflow.
+
+The V0 research evaluation is not complete. The next step is to run and record the flat-skills versus Skill Graph benchmark. General natural-language root selection and unrestricted UPBGE control remain outside V0.
+
 ## Core Model
 
 Capgraph separates three layers:
@@ -118,4 +124,4 @@ The direct transport and complete create/configure/verify workflow have been val
 
 ## Project Scope
 
-V0 tests graph-based capability composition from a known root skill. It intentionally does not include intent search, vector retrieval, graph learning, a database, or multi-agent orchestration.
+V0 tests graph-based capability composition from a known root skill. Its technical vertical slice is complete; comparative benchmark evaluation remains pending. V0 intentionally does not include intent search, vector retrieval, graph learning, a database, or multi-agent orchestration.

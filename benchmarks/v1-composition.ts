@@ -17,6 +17,7 @@ const SOURCE = resolve(ROOT, "capabilities-v1");
 const FLAT = resolve(ROOT, "benchmarks", ".generated-v1-flat-skills");
 const GRAPH_EXTENSION = resolve(ROOT, "extensions", "v1-skill-graph-batch.ts");
 const FLAT_READ_GATE_EXTENSION = resolve(ROOT, "extensions", "v1-flat-read-gate.ts");
+const GRAPH_READ_GATE_EXTENSION = resolve(ROOT, "extensions", "v1-graph-read-gate.ts");
 const UPBGE_EXTENSION = resolve(ROOT, "extensions", "v1-upbge-control.ts");
 const MAX_TOOL_CALLS = 30;
 const TIMEOUT_MS = 5 * 60_000;
@@ -76,7 +77,7 @@ async function resetFixture(): Promise<void> {
 }
 
 async function loader(condition: V1Condition, settings: SettingsManager): Promise<DefaultResourceLoader> {
-  const result = new DefaultResourceLoader({ cwd: ROOT, agentDir: getAgentDir(), settingsManager: settings, additionalExtensionPaths: condition === "graph" ? [GRAPH_EXTENSION, UPBGE_EXTENSION] : [FLAT_READ_GATE_EXTENSION, UPBGE_EXTENSION], additionalSkillPaths: condition === "flat" ? [FLAT] : [], noExtensions: true, noSkills: true, noPromptTemplates: true, noThemes: true, noContextFiles: true });
+  const result = new DefaultResourceLoader({ cwd: ROOT, agentDir: getAgentDir(), settingsManager: settings, additionalExtensionPaths: condition === "graph" ? [GRAPH_EXTENSION, GRAPH_READ_GATE_EXTENSION, UPBGE_EXTENSION] : [FLAT_READ_GATE_EXTENSION, UPBGE_EXTENSION], additionalSkillPaths: condition === "flat" ? [FLAT] : [], noExtensions: true, noSkills: true, noPromptTemplates: true, noThemes: true, noContextFiles: true });
   await result.reload();
   if (result.getExtensions().errors.length || result.getSkills().diagnostics.length) throw new Error(`Resource loading failed: ${JSON.stringify([result.getExtensions().errors, result.getSkills().diagnostics])}`);
   return result;

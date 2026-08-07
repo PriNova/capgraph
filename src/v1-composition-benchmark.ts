@@ -39,7 +39,9 @@ export type V1Condition = "flat" | "graph";
 export type V1Variant = "normal" | "recovery";
 
 export function v1SessionToolNames(condition: V1Condition): readonly string[] {
-  return condition === "flat" ? ["read", "upbge_control"] : ["skill_graph", "upbge_control"];
+  return condition === "flat"
+    ? ["read", "upbge_control"]
+    : ["read", "skill_graph", "upbge_control"];
 }
 
 export interface V1Slot {

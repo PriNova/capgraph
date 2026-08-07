@@ -11,7 +11,7 @@ import {
   v1IrrelevantLoadedSkills, v1SessionToolNames,
 } from "../src/v1-composition-benchmark.ts";
 import { V1_UPBGE_PARAMETER_DESCRIPTIONS, V1_UPBGE_PROMPT_GUIDELINES, V1_UPBGE_PROMPT_SNIPPET, V1_UPBGE_TOOL_DESCRIPTION } from "../extensions/v1-upbge-control.ts";
-import { isAllowedV1FlatRead } from "../extensions/v1-flat-read-gate.ts";
+import { isAllowedV1FlatRead, isV1ReadAllowedForCondition } from "../extensions/v1-flat-read-gate.ts";
 
 const directory = fileURLToPath(new URL("../capabilities-v1/", import.meta.url));
 function body(source: string): string { return source.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n+/, ""); }
@@ -69,12 +69,16 @@ test("shared execution interface is primitive and contains no composition guidan
 
 test("condition read access cannot expose benchmark implementation", () => {
   assert.deepEqual(v1SessionToolNames("flat"), ["read", "upbge_control"]);
-  assert.deepEqual(v1SessionToolNames("graph"), ["skill_graph", "upbge_control"]);
+  assert.deepEqual(v1SessionToolNames("graph"), ["read", "skill_graph", "upbge_control"]);
   assert.ok(isAllowedV1FlatRead(`${directory}/../benchmarks/.generated-v1-flat-skills/vehicle-create/SKILL.md`));
   assert.ok(!isAllowedV1FlatRead(`${directory}/../benchmarks/v1-composition.ts`));
   assert.ok(!isAllowedV1FlatRead(`${directory}/vehicle-create/SKILL.md`));
   assert.ok(!isAllowedV1FlatRead(`${directory}/../package.json`));
-  assert.deepEqual(v1SessionToolNames("flat").filter((name) => name === "upbge_control"), v1SessionToolNames("graph").filter((name) => name === "upbge_control"));
+  const generatedSkill = `${directory}/../benchmarks/.generated-v1-flat-skills/vehicle-create/SKILL.md`;
+  assert.equal(isV1ReadAllowedForCondition("flat", generatedSkill), true);
+  assert.equal(isV1ReadAllowedForCondition("graph", generatedSkill), false);
+  assert.equal(isV1ReadAllowedForCondition("flat", `${directory}/../benchmarks/v1-composition.ts`), false);
+  assert.deepEqual(v1SessionToolNames("flat").filter((name) => name === "read" || name === "upbge_control"), v1SessionToolNames("graph").filter((name) => name === "read" || name === "upbge_control"));
   assert.equal(evaluateV1Protocol("flat", "normal", [{ name: "read", args: { path: "package.json" }, isError: true }]).conformant, false);
   assert.equal(evaluateV1Protocol("graph", "normal", [{ name: "read", args: { path: "anything" }, isError: false }]).conformant, false);
 });

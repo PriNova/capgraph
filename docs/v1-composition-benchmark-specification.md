@@ -22,11 +22,12 @@ The completed V0.1 result fixes Graph Batch as the V1 graph loading policy. Do n
 - Expose the complete V1 skill catalog through normal flat discovery.
 - Allow exact source-equivalent skill bodies to be loaded with `read`.
 - Scope benchmark `read` access to discovered generated V1 `SKILL.md` fixtures. Block implementation, harness, source-graph, and unrelated filesystem reads so tool-error exploration cannot contaminate the condition.
+- Expose the same built-in `read` tool definition in both conditions. Apply a condition-aware sandbox: Flat may read only canonical generated V1 `SKILL.md` fixtures, while Graph must load graph-managed prose through `skill_graph` and all direct `read` calls are blocked.
 - Remove only CapGraph metadata from generated fixtures.
 
 ### Graph
 
-- Expose no graph-managed skill catalog through flat discovery and do not provide the Flat `read` path.
+- Expose no graph-managed skill catalog through flat discovery and do not permit direct reads of Flat fixtures or repository files.
 - Expand the supplied root deterministically.
 - Use Graph Batch, as selected by V0.1.
 - Load recovery prose only after a relevant verification failure.

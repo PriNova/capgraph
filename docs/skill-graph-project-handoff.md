@@ -140,7 +140,7 @@ Test:
 
 This deliberately avoids solving the Intent → Capability problem yet.
 
-For benchmark tasks, the root skill may be explicitly supplied. The Agent Skills `name` is the canonical graph node ID.
+For benchmark tasks, the root skill may be explicitly supplied. The completed V1 implementation uses the Agent Skills `name` as its canonical graph node ID; this is the tested identity strategy, not a final namespace architecture.
 
 Example:
 
@@ -241,8 +241,8 @@ metadata:
 
 Requirements:
 
-- `name` is the canonical graph node ID, must be a valid Agent Skills name, and must match its parent directory.
-- A separate `capgraph-id` is not supported.
+- `name` is the current V1 graph node ID, must be a valid Agent Skills name, and must match its parent directory.
+- A separate `capgraph-id` is not supported. Stable namespace-aware identity and rename compatibility remain open questions.
 - `capgraph-requires`, `capgraph-verify-with`, and `capgraph-recover-with` are optional strings.
 - Each relation string contains whitespace-separated Agent Skills names.
 - Skills without outgoing graph relations may omit `metadata`.
@@ -839,4 +839,4 @@ When uncertain whether to add another system:
 
 > Prefer leaving a problem explicitly unsolved over solving it prematurely with another abstraction layer.
 
-The project succeeds first by proving or disproving the graph hypothesis, not by becoming a complete agent platform.
+The project succeeds first by testing the graph hypothesis, not by becoming a complete agent platform.

@@ -12,8 +12,8 @@ The main result is narrower but positive:
 
 Early tests showed that graph interaction design matters. One-skill-at-a-time loading added overhead in V0. V0.1 showed that one deterministic batch load removed most of this overhead. V1 then showed measurable benefits when the available catalog was larger than the relevant capability closure:
 
-- 43.6% less median measured capability context;
-- 51.1% fewer median agent tool calls;
+- the tested Graph harness exposed 43.6% less median measured capability context;
+- 51.1% fewer median agent tool calls, largely influenced by Graph Batch versus individual Flat reads;
 - 47.6% fewer median cache-read tokens;
 - 16.8% lower median cost;
 - no irrelevant skill bodies loaded in Graph runs;
@@ -47,7 +47,7 @@ Capgraph separates three concerns:
 2. **Skill prose** — model-facing operational guidance in Agent Skills-compatible `SKILL.md` files.
 3. **Execution code** — TypeScript tools and controlled Python scripts that mutate or verify UPBGE state.
 
-The Agent Skills `name` is the canonical graph node ID. Relations are stored as string values under standard `metadata.capgraph-*` keys. Graph-managed skills remain under `capabilities/`, outside normal pi skill discovery.
+The current V1 implementation uses the Agent Skills `name` as its canonical graph node ID. This is the tested V1 identity strategy, not a final universal identity design. Relations are stored as string values under `metadata` keys `capgraph-requires`, `capgraph-verify-with`, and `capgraph-recover-with`. Graph-managed skills remain outside normal pi skill discovery.
 
 The complete graph is indexed outside model context. The model receives only:
 
@@ -73,7 +73,7 @@ UPBGE control uses the official Blender Lab MCP add-on only as a local TCP bridg
 
 The `upbge_control` tool exposes fixed operations rather than arbitrary Python. It validates object names, constrains script resolution to the package, limits request and response sizes, and supports timeout and cancellation.
 
-The bridge still has a material security risk: it accepts local arbitrary Python requests and has no authentication. Safe use requires localhost-only binding, trusted local processes, clean scenes, and saved work.
+The bridge still has a material security risk: it accepts local arbitrary Python requests and has no authentication. Safe use requires localhost-only binding, no exposure to untrusted networks, trusted local processes, clean scenes, and saved work. Capgraph does not solve bridge security.
 
 ## 5. Benchmark Progression
 
@@ -167,7 +167,7 @@ V1 therefore supports composition determinism and irrelevant-prose avoidance. It
 
 ## 8. Documentation Status
 
-The project handoff, compatibility contract, transport research, benchmark specifications, benchmark reports, and smoke report form a traceable evidence chain. `docs/open-questions.md` currently records no open questions.
+The project handoff, compatibility contract, transport research, benchmark specifications, benchmark reports, generated V1 measurements, canonical raw artifacts, and smoke report form a traceable evidence chain. `docs/open-questions.md` records unresolved context-dependency, stable-identity, and Flat Batch ablation questions.
 
 The V1 specification is marked completed and frozen and links to the formal benchmark report. Its experimental design remains preserved as the historical benchmark contract.
 
@@ -181,8 +181,8 @@ The evidence does not justify claiming that capability graphs improve agent reli
 
 > For a known-root task with a larger capability catalog, explicit dependency, verification, and recovery relations can reduce irrelevant capability exposure and make composition more deterministic. Batch loading is necessary to avoid excessive graph interaction overhead.
 
-The project should stop architecture expansion at this point. No database, semantic search, self-learning, graph mutation, cache layer, or orchestration system is justified by current evidence.
+The project should stop architecture expansion at this point. No database, semantic search, self-learning, graph mutation, cache layer, or orchestration system is justified by current evidence. Canonical formal artifacts are preserved under `benchmarks/artifacts/`; deterministic V1 measurements are separated from human-authored analysis.
 
-## 10. Recommended Next Step
+## 10. Publication Boundary
 
-Analyze and reproduce the V1 mechanisms before adding features. If further evaluation is approved, run a larger repeated benchmark across multiple genuine tasks and at least one additional model while preserving the known-root boundary and current Graph Batch policy. This would test whether V1's context and composition effects are stable without mixing in the separate intent-resolution problem.
+Publication hardening should preserve and reproduce the existing evidence before any new benchmark or architecture work. Further evaluation, if separately approved later, must remain a new frozen stage and must not mutate V0, V0.1, or V1 evidence.

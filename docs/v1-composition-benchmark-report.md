@@ -1,5 +1,7 @@
 # V1 Composition Benchmark Report
 
+> Human-authored analysis. Deterministic measurements are regenerated from the canonical raw artifact in [V1 Generated Results](v1-generated-results.md).
+
 ## 1. Result
 
 The formal V1 composition benchmark completed all eight scheduled runs:
@@ -13,7 +15,7 @@ The formal V1 composition benchmark completed all eight scheduled runs:
 - Graph composition behavior was conformant in 4/4 runs.
 - Flat composition behavior was conformant in 3/4 runs. One Flat Recovery run loaded two irrelevant alternative verifier bodies: `static-scene-verify` and `vehicle-static-verify`.
 
-Reliability was equal. Graph avoided all irrelevant skill bodies and returned 43.6% fewer median capability-context bytes. Graph also used fewer median turns, tool calls, output tokens, cache-read tokens, duration, and cost. Median provider input tokens were 1.0% higher for Graph.
+Reliability was equal. Graph avoided all irrelevant skill bodies. The tested Graph harness exposed 43.6% less median measured capability context. Graph also used fewer median turns, tool calls, output tokens, cache-read tokens, duration, and cost. Median provider input tokens were 1.0% higher for Graph. Much of the tool-call difference came from Graph Batch versus individual Flat reads, not graph reasoning alone.
 
 The result supports a narrow mechanism-level conclusion:
 
@@ -75,17 +77,19 @@ Recovery adds this sentence after the first line:
 The fixture may report an observed runtime fault; preserve valid state while resolving it.
 ```
 
-Raw result artifact:
+Canonical raw result artifact:
 
 ```text
-benchmarks/results/v1-vehicle-composition-formal-final-20260807-220247.jsonl
+benchmarks/artifacts/v1-formal.jsonl
 ```
 
 SHA-256:
 
 ```text
-66a0e0221f992ed107da14f22703e906159372524437dccfc173da0c800ad95e
+d42aae57e84f7f35af7bc34b43a605be0127815cdfddb145c3f3596749723318
 ```
+
+The canonical public artifact replaces absolute benchmark-machine paths with repository-relative paths. Measurements and classifications are unchanged.
 
 ## 4. Capability Topology
 
@@ -395,10 +399,10 @@ Graph avoided the complete Flat catalog and reduced median measured capability c
 
 V0 and V0.1 remain historical baselines. Their specifications, reports, and raw records were not modified for V1.
 
-V1 used a new capability directory, task fixture, runner fields, schedule, raw artifact, and report. Only this artifact is included in the formal V1 result:
+V1 used a new capability directory, task fixture, runner fields, schedule, raw artifact, and report. Only this canonical artifact is included in the formal V1 result:
 
 ```text
-benchmarks/results/v1-vehicle-composition-formal-final-20260807-220247.jsonl
+benchmarks/artifacts/v1-formal.jsonl
 ```
 
 The following classes of records are excluded from formal interpretation:

@@ -1,103 +1,142 @@
 # Capgraph
 
-Capgraph is a minimal capability-graph experiment for coding agents.
+Capgraph is a small experimental capability-graph layer for Agent Skills. It tests known-root capability composition while keeping graph metadata, model-facing `SKILL.md` prose, and executable tools separate.
 
-The project tests whether explicit skill dependencies, verification, recovery, and composition help an agent complete tasks more reliably and with less context than a flat skill library.
+Capgraph is a completed V0 → V0.1 → V1 experiment, not a general agent framework. UPBGE is the test domain; graph traversal remains domain-independent.
 
-UPBGE is the first test domain. The graph implementation remains domain-independent.
-
-## Benchmark Status
-
-The technical V0 vertical slice and controlled V0 benchmark are complete. Flat and Graph both achieved 5/5 verified success. Graph used slightly fewer unique capability-context bytes but increased turns, tool calls, duration, provider usage, and cost. The historical V0 specification and report remain unchanged.
-
-V0.1 compared Flat, Graph Progressive, and Graph Batch after removing dependency-sequence prose from the composite root. All conditions achieved 6/6 verified success. Batch removed much of Progressive's interaction overhead, but Flat retained lower input-token usage and cost. General natural-language root selection and unrestricted UPBGE control remain outside scope.
-
-## Core Model
-
-Capgraph separates three layers:
-
-1. **Graph metadata** describes capability relationships such as `requires`, `verify_with`, and `recover_with`.
-2. **Skill prose** in `SKILL.md` provides model-facing decisions, API guidance, failure modes, and recovery instructions.
-3. **Executable scripts** perform and verify domain operations.
-
-The complete graph stays outside model context. The pi extension exposes metadata for the local subgraph selected from a known root capability, then loads individual skill bodies on demand.
-
-## First Vertical Slice
-
-The initial workflow creates and verifies a physics-enabled cube in UPBGE:
+## Core Architecture
 
 ```text
-physics-object-create
-├─ requires → object-create
-├─ requires → rigid-body-add
-├─ requires → collision-add
-└─ verify_with → physics-object-verify
+Agent Skills-compatible SKILL.md
+        ↓
+capgraph metadata
+        ↓
+external graph index
+        ↓
+known-root deterministic closure
+        ↓
+batch-loaded relevant prose
+        ↓
+execution
+        ↓
+verification / lazy recovery
 ```
 
-The capability implementations use Blender's `bpy` data API and UPBGE game settings through `Object.game`. They do not use Blender's separate animation rigid-body system.
+The current V1 metadata keys are string values under Agent Skills `metadata`:
+
+- `capgraph-requires` → `requires`
+- `capgraph-verify-with` → `verify_with`
+- `capgraph-recover-with` → `recover_with`
+
+`requires` is traversed recursively in dependency-first order and shared dependencies are deduplicated. `verify_with` and `recover_with` are terminal associations: their outgoing relations are not traversed. Graph Batch loads the complete declared `requires` closure and verifier prose in one operation. Recovery prose remains unloaded until a relevant failure.
+
+V1 uses the Agent Skills `name` as the canonical graph node identifier. The name must match its capability directory. This is the current V1 identity strategy, not a final namespace design; rename compatibility and cross-package identity remain open questions.
+
+## Evidence
+
+Final reliability was equal between Flat and Graph in every formal stage.
+
+### V0
+
+Progressive, one-skill-at-a-time graph loading added interaction overhead on a shallow five-skill workflow. Flat and Graph both achieved 5/5 verified success.
+
+### V0.1
+
+Graph Batch removed most mechanical loading overhead. Flat, Graph Progressive, and Graph Batch each achieved 6/6 verified success. Graph Batch became the preferred graph loading policy.
+
+### V1
+
+V1 exposed 24 capabilities while the normal relevant closure contained 14 bodies including the verifier. Across four runs per condition:
+
+- Flat and Graph both achieved 4/4 independently verified success;
+- Graph composition was more deterministic in this small sample;
+- Graph loaded no irrelevant skill bodies;
+- the tested Graph harness exposed 43.6% less median measured capability context;
+- Graph loaded recovery prose only after the controlled failure;
+- Flat sometimes omitted declared low-level prose and still succeeded;
+- reliability remained equal.
+
+Graph used substantially fewer tool calls, but much of this came from one Graph Batch operation replacing individual Flat reads. The context result also includes different Flat catalog, Graph metadata, frontmatter, and serialization payloads. Neither result alone proves superior graph reasoning.
+
+> These are small known-root experiments and are not evidence that capability graphs generally improve agent reliability.
+
+Evidence chain:
+
+- [Final project report](docs/final-report.md)
+- [V1 human-authored analysis](docs/v1-composition-benchmark-report.md)
+- [V1 generated measurements](docs/v1-generated-results.md)
+- [Frozen V1 specification](docs/v1-composition-benchmark-specification.md)
+- [Canonical V1 raw artifact](benchmarks/artifacts/v1-formal.jsonl)
 
 ## Repository Structure
 
 ```text
-capabilities/              Graph-managed SKILL.md files and UPBGE scripts
-extensions/               pi graph and UPBGE control tools
-src/                       Graph logic and direct UPBGE TCP transport
-examples/                  Workflow contracts
+capabilities/              V0/V0.1 graph-managed skills and scripts
+capabilities-v1/           Frozen V1 capability catalog
+benchmarks/artifacts/      Canonical formal JSONL evidence; never runner output
+benchmarks/results/        Ignored temporary, smoke, and exploratory runs
+extensions/                pi graph, read-sandbox, and UPBGE tools
+src/                       Graph and benchmark logic
 tests/                     Unit and pi SDK integration tests
-docs/                      Architecture and compatibility documents
+docs/                      Specifications, generated results, and analysis
 ```
 
-Each implemented UPBGE capability keeps its Python code under its own `scripts/` directory. The composite `physics-object-create` skill references these implementations instead of duplicating them.
+Canonical artifacts use deterministic repository-relative path sanitization. Their public artifact hashes are:
+
+| Stage | Artifact | SHA-256 |
+|---|---|---|
+| V0 | [`benchmarks/artifacts/v0-formal.jsonl`](benchmarks/artifacts/v0-formal.jsonl) | `55c5dd92082921f9cf0d911afef0579c16c283dc7d6ea2d11c9c8ebf5469921c` |
+| V0.1 | [`benchmarks/artifacts/v0.1-formal.jsonl`](benchmarks/artifacts/v0.1-formal.jsonl) | `b266d1babd451944417a1538d24c8ad4028412e2940d3dd943e29edefdafc881` |
+| V1 | [`benchmarks/artifacts/v1-formal.jsonl`](benchmarks/artifacts/v1-formal.jsonl) | `d42aae57e84f7f35af7bc34b43a605be0127815cdfddb145c3f3596749723318` |
+
+Benchmark runners write only to ignored `benchmarks/results/` by default. They do not overwrite canonical artifacts.
 
 ## Requirements
 
 - Node.js 22.19 or newer
 - npm
-- pi-compatible runtime for extension use
-- UPBGE for editor execution and runtime validation
+- pi-compatible runtime for extension use; formal benchmarks used pi 0.83.0
+- UPBGE for live editor execution; tested with UPBGE 5.3.0 Alpha, build `9a92b08bb47b`
 
-Automated tests do not require UPBGE. The live control tool requires the official MCP add-on bridge at `127.0.0.1:9876`.
+Automated tests do not require UPBGE. The live tool requires the official Blender Lab MCP add-on bridge at `127.0.0.1:9876`.
 
-## Setup
+## Setup and Validation
 
 ```bash
 npm install
-```
-
-## Validation
-
-Run TypeScript checks and all automated tests:
-
-```bash
 npm run check
 npm test
+npm run test:workflow
+npm run test:v1-upbge-fixture  # requires the local UPBGE bridge
 ```
 
-Run only the pi workflow integration test:
+The tests cover Flat fixture equivalence, graph expansion, shared dependency deduplication, cycle and reference validation, batch loading, lazy recovery classification, read sandboxes, transport limits, and workflow integration.
+
+Regenerate deterministic V1 measurements from the canonical artifact:
 
 ```bash
-npm run test:workflow
+npm run report:v1
 ```
 
-The current workflow test loads the pi extension and validates graph inspection, metadata-only expansion, and one-skill loading without a model, network connection, persistent session, or UPBGE process.
+Optional explicit paths:
+
+```bash
+npm run report:v1 -- <input.jsonl> <output.md>
+```
+
+Generation validates the frozen eight-slot schedule and required fields, fails on missing or malformed records, and embeds the input SHA-256. Human interpretation remains in the separate V1 report.
 
 ## Benchmark Runners
 
-The historical V0 runner remains available:
+Historical runners remain available, but documentation work does not require rerunning them:
 
 ```bash
 npm run benchmark:pilot -- --start 1 --end 2
-```
-
-Run the three-condition V0.1 loading-policy benchmark with:
-
-```bash
 npm run benchmark:loading-policy -- --start 1 --end 3 --auto-reset
+npm run benchmark:v1 -- --start 1 --end 2
 ```
 
-Both runners default to `openai-codex/gpt-5.6-luna` with `max` reasoning. V0.1 uses a manual clean-scene gate by default. Its optional `--auto-reset` mode deletes only `CapgraphBenchmarkCube` and its mesh when unused, then verifies that the object is absent before timing starts. Raw attempt records are written as ignored JSON Lines under `benchmarks/results/` unless `--output <path>` is supplied.
-
-See the [V0 report](docs/v0-pilot-benchmark-report.md), [V0.1 specification](docs/v0.1-loading-policy-benchmark-specification.md), [V0.1 report](docs/v0.1-loading-policy-benchmark-report.md), and [V1 composition design](docs/v1-composition-benchmark-specification.md).
+Formal runs used `openai-codex/gpt-5.6-luna` with `max` reasoning. Output defaults to ignored timestamped JSONL under `benchmarks/results/`. Use a dedicated scene and follow each frozen specification before collecting new evidence.
 
 ## pi Integration
 
@@ -107,44 +146,31 @@ Load the repository as a local pi package:
 pi -e .
 ```
 
-The package registers two custom tools:
+The package registers:
 
-- `skill_graph` inspects a node, expands local metadata, or loads one known skill body.
-- `upbge_control` executes an allowed editor operation through the bridge at `127.0.0.1:9876`.
+- `skill_graph`: inspect, expand, load one body, or `load_many` for a known root;
+- `upbge_control`: execute fixed allowed editor operations through the local bridge.
 
-Allowed UPBGE operations are `status`, `create_cube`, `add_rigid_body`, `add_collision`, and `verify_physics_object`. The tool builds fixed Python wrappers and loads only the repository capability scripts. It does not accept model-authored Python or configurable script paths.
+The package manifest retains the historical V0 progressive-loading extension over `capabilities/`. `extensions/skill-graph-batch.ts` applies the preferred batch policy to that catalog, while the frozen V1 benchmark uses condition-specific extensions and `capabilities-v1/`. Tool output is limited to pi's default line and byte limits. The loader rejects invalid names, unknown references, duplicate names, escaping paths, and reachable `requires` cycles.
 
-Example root capability:
+## Security
 
-```text
-physics-object-create
-```
+The agent-facing `upbge_control` tool does not accept arbitrary Python. It maps validated operations to fixed wrappers and repository scripts.
 
-## UPBGE Scripts
+The underlying Blender Lab bridge is more powerful: it accepts arbitrary Python and has no authentication. Capgraph does not solve bridge security.
 
-Current executable modules:
+- Bind and use it only on `localhost` / `127.0.0.1`.
+- Never expose port `9876` to a LAN or untrusted network.
+- Run only in a trusted local environment with trusted local processes.
+- Save important work before testing agent control.
+- Prefer clean test scenes.
 
-- `capabilities/object-create/scripts/create_cube.py`
-- `capabilities/rigid-body-add/scripts/add_rigid_body.py`
-- `capabilities/collision-add/scripts/add_collision.py`
-- `capabilities/physics-object-verify/scripts/verify_physics_object.py`
+See [UPBGE Control Transport](docs/upbge-control-transport.md) for the full trust boundary.
 
-These modules expose Python functions for the UPBGE editor process. `upbge_control` resolves objects by validated names between TCP requests.
+## Scope
 
-The direct transport and complete create/configure/verify workflow have been validated against UPBGE 5.3.0 Alpha. Automated transport tests use a local mock server and do not require UPBGE.
+Capgraph tests deterministic composition from a supplied root. It does not implement intent resolution, semantic search, embeddings, databases, caching, graph mutation, learning, orchestration, subagent routing, namespaces, or stable-ID migration. See [Open Questions](docs/open-questions.md).
 
-## Documentation
+## License
 
-- [Project handoff](docs/skill-graph-project-handoff.md)
-- [V0 pilot benchmark specification](docs/v0-pilot-benchmark-specification.md)
-- [V0 pilot benchmark report](docs/v0-pilot-benchmark-report.md)
-- [V0.1 loading-policy benchmark specification](docs/v0.1-loading-policy-benchmark-specification.md)
-- [V0.1 loading-policy benchmark report](docs/v0.1-loading-policy-benchmark-report.md)
-- [V1 composition benchmark specification](docs/v1-composition-benchmark-specification.md)
-- [Pi compatibility contract](docs/pi-compatibility-contract.md)
-- [UPBGE control transport](docs/upbge-control-transport.md)
-- [Open questions](docs/open-questions.md)
-
-## Project Scope
-
-Capgraph benchmarks graph-based capability composition from a known root skill. It intentionally excludes intent search, vector retrieval, graph learning, databases, and multi-agent orchestration.
+No repository license has been selected. External redistribution or reuse requires permission until the project owner adds a license. This remains a public-release blocker, not an architectural task.

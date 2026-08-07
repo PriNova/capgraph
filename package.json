@@ -2,6 +2,7 @@
   "name": "capgraph",
   "version": "0.0.0",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "keywords": [
     "pi-package"
@@ -23,7 +24,8 @@
     "benchmark:loading-policy": "node benchmarks/loading-policy.ts",
     "test:v1-upbge-fixture": "node benchmarks/v1-fixture-test.ts",
     "benchmark:v1": "node benchmarks/v1-composition.ts",
-    "report:v1": "node benchmarks/report-v1.ts"
+    "report:v1": "node benchmarks/report-v1.ts",
+    "verify:artifacts": "node benchmarks/verify-artifacts.ts"
   },
   "dependencies": {
     "yaml": "^2.9.0"

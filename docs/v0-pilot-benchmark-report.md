@@ -49,14 +49,16 @@ Complete the task and verify the result. Stop after verification passes or you d
 Raw result artifact:
 
 ```text
-benchmarks/results/v0-physics-object-pilot-2026-08-07T15-35-14-424Z.jsonl
+benchmarks/artifacts/v0-formal.jsonl
 ```
 
 SHA-256:
 
 ```text
-26dc1b9ce8a9bcf02aeb9acfa9b53687c68ac37bb8acdaa042c37048ca9142a3
+55c5dd92082921f9cf0d911afef0579c16c283dc7d6ea2d11c9c8ebf5469921c
 ```
+
+The canonical public artifact replaces absolute benchmark-machine paths with repository-relative paths. Measurements and classifications are unchanged.
 
 The earlier eager-expansion exploratory pair is excluded from this report.
 

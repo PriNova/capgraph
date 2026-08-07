@@ -59,7 +59,7 @@ Requirements:
 - references to scripts, assets, and documents use paths relative to the skill directory
 - instructions and executable files are written in English
 
-The Agent Skills `name` is the canonical graph node ID. A separate `capgraph-id` is not supported. Each skill declares outgoing relations through namespaced entries in the standard `metadata` field:
+The current V1 implementation uses the Agent Skills `name` as its canonical graph node ID. This is the tested identity strategy, not a universal long-term identity design. A separate `capgraph-id` is not supported. Each skill declares outgoing relations through namespaced entries in the standard `metadata` field:
 
 ```yaml
 metadata:
@@ -68,7 +68,7 @@ metadata:
   capgraph-recover-with: "object-repair"
 ```
 
-Agent Skills `metadata` is a map from string keys to string values. Custom top-level fields, nested objects, and YAML arrays must not be used. Relation values are whitespace-separated Agent Skills names. Skills without outgoing relations may omit `metadata`. The skill `name` must match its parent directory; the graph loader derives the `SKILL.md` path directly and does not require an identifier mapping.
+Agent Skills `metadata` is a map from string keys to string values. Custom top-level fields, nested objects, and YAML arrays must not be used. Relation values are whitespace-separated Agent Skills names. Skills without outgoing relations may omit `metadata`. The skill `name` must match its parent directory; the graph loader derives the `SKILL.md` path directly and does not require an identifier mapping. Stable namespace-aware identity, rename compatibility, and cross-package references remain outside the tested scope.
 
 ## 5. Discovery and Context Contract
 

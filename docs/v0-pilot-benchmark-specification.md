@@ -8,7 +8,7 @@ Research question:
 
 > Given the known root capability `physics-object-create`, does explicit graph expansion help the same coding agent complete and verify the workflow more reliably or with less exploration and context than flat skill discovery?
 
-This is a harness pilot, not broad evidence for or against Skill Graphs. It uses one simple workflow and ten model runs. Results from the earlier eager-expansion exploratory pair must not be mixed with this progressive-disclosure series.
+This is a harness pilot, not broad evidence for or against Skill Graphs. It uses one simple workflow and ten model runs. Results from the earlier eager-expansion exploratory pair must not be mixed with this progressive-disclosure series. The completed formal raw artifact is preserved at [`benchmarks/artifacts/v0-formal.jsonl`](../benchmarks/artifacts/v0-formal.jsonl).
 
 ## 2. Fixed Task
 

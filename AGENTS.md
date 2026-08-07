@@ -2,10 +2,7 @@
 
 ## UPBGE
 
-- Local installation: `D:\Programms\Graphics\UPBGE`
-- Editor executable: `D:\Programms\Graphics\UPBGE\blender.exe`
-- Player executable: `D:\Programms\Graphics\UPBGE\blenderplayer.exe`
-- Installed build: UPBGE with Blender 5.3.0 Alpha, build hash `9a92b08bb47b`
-- Git Bash editor path: `/d/Programms/Graphics/UPBGE/blender.exe`
-
-Use this installation for Capgraph UPBGE execution and verification tests on this development machine.
+- Use a locally installed UPBGE editor for optional live fixture validation.
+- Tested build: UPBGE with Blender 5.3.0 Alpha, build hash `9a92b08bb47b`.
+- Do not commit machine-specific installation paths.
+- Automated tests do not require UPBGE. Live fixture tests require the trusted localhost bridge documented in `docs/upbge-control-transport.md`.

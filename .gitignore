@@ -3,4 +3,8 @@ dist/
 coverage/
 benchmarks/.generated-flat-skills/
 benchmarks/.generated-v1-flat-skills/
+# Temporary, smoke, and exploratory benchmark output only.
 benchmarks/results/*.jsonl
+# Preserve the legacy tracked V0 source path; canonical evidence now lives under artifacts/.
+!benchmarks/results/v0-physics-object-pilot-2026-08-07T15-35-14-424Z.jsonl
+# Canonical formal evidence under benchmarks/artifacts/ is intentionally tracked.

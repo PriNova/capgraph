@@ -1,6 +1,6 @@
 # V1 Composition Benchmark Specification
 
-Status: completed and frozen. The implemented benchmark and formal results are recorded in [V1 Composition Benchmark Report](v1-composition-benchmark-report.md).
+Status: completed and frozen. The implemented benchmark and formal results are recorded in [V1 Composition Benchmark Report](v1-composition-benchmark-report.md). The preserved raw evidence is [`benchmarks/artifacts/v1-formal.jsonl`](../benchmarks/artifacts/v1-formal.jsonl); deterministic measurements are in [V1 Generated Results](v1-generated-results.md).
 
 ## 1. Purpose
 

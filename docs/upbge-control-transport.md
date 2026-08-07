@@ -151,7 +151,7 @@ Example:
 import runpy
 
 create_cube = runpy.run_path(
-    "C:/CodeProjects/capgraph/capabilities/object-create/scripts/create_cube.py"
+    "/path/to/capgraph/capabilities/object-create/scripts/create_cube.py"
 )["create_cube"]
 
 obj = create_cube("PhysicsCube")

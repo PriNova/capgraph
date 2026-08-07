@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+*.tgz
+AGENTS.md
+benchmarks/.generated-flat-skills/
+benchmarks/.generated-v1-flat-skills/
+benchmarks/results/
